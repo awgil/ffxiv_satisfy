@@ -43,6 +43,9 @@ public unsafe class MainWindow() : Window("Satisfier"), IDisposable
 
     private void DrawMainTable()
     {
+        if (!_wasLoaded)
+            return;
+
         var inst = SatisfactionSupplyManager.Instance();
         var npcSheet = Service.LuminaSheet<SatisfactionNpc>()!;
         if (inst->Satisfaction.Length + 1 != npcSheet.RowCount)
