@@ -39,7 +39,7 @@ jobs:
         uses: PunishXIV/dynamis-action@v1
         id: dynamis
         with:
-          plugin_id: 30
+          plugin_id: 58
           internal_name: "vsatisfy"
           version_number: ${{ env.tag }}
           path: "vsatisfy/bin/Release/vsatisfy/latest.zip"
