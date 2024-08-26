@@ -1,6 +1,7 @@
 ﻿using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
 using FFXIVClientStructs.FFXIV.Client.Game;
+using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
 
@@ -8,8 +9,30 @@ namespace Satisfy;
 
 public unsafe class MainWindow() : Window("Satisfier"), IDisposable
 {
+    private readonly Achievements _achi = new();
+    private bool _wasLoaded;
+
     public void Dispose()
     {
+        _achi.Dispose();
+    }
+
+    public override void PreOpenCheck()
+    {
+        var isLoaded = UIState.Instance()->PlayerState.IsLoaded != 0;
+        if (_wasLoaded == isLoaded)
+            return;
+
+        if (isLoaded)
+        {
+            IsOpen = true; // SatisfactionSupplyManager.Instance()->GetRemainingAllowances() > 0;
+        }
+        else
+        {
+            _achi.Reset();
+            IsOpen = false;
+        }
+        _wasLoaded = isLoaded;
     }
 
     public override void Draw()
@@ -28,13 +51,14 @@ public unsafe class MainWindow() : Window("Satisfier"), IDisposable
             return;
         }
 
-        using var table = ImRaii.Table("main_table", 4);
+        using var table = ImRaii.Table("main_table", 5);
         if (!table)
             return;
         ImGui.TableSetupColumn("NPC", ImGuiTableColumnFlags.WidthFixed, 100);
         ImGui.TableSetupColumn("Bonus", ImGuiTableColumnFlags.WidthFixed, 20);
         ImGui.TableSetupColumn("Progress", ImGuiTableColumnFlags.WidthFixed, 120);
-        ImGui.TableSetupColumn("Achievement");
+        ImGui.TableSetupColumn("Achievement", ImGuiTableColumnFlags.WidthFixed, 120);
+        ImGui.TableSetupColumn("Actions");
 
         var bonusOverrideRow = inst->BonusGuaranteeRowId != 0xFF ? inst->BonusGuaranteeRowId : Calculations.CalculateBonusGuarantee();
         var bonusOverride = bonusOverrideRow >= 0 ? Service.LuminaRow<SatisfactionBonusGuarantee>((uint)bonusOverrideRow) : null;
@@ -52,7 +76,14 @@ public unsafe class MainWindow() : Window("Satisfier"), IDisposable
             ImGui.Checkbox("###bonus", ref isBonus);
 
             ImGui.TableNextColumn();
-            ImGui.ProgressBar((float)inst->UsedAllowances[i] / npcData.DeliveriesPerWeek, default, $"{inst->UsedAllowances[i]} / {npcData.DeliveriesPerWeek}");
+            ImGui.ProgressBar((float)inst->UsedAllowances[i] / npcData.DeliveriesPerWeek, new(120, 0), $"{inst->UsedAllowances[i]} / {npcData.DeliveriesPerWeek}");
+
+            ImGui.TableNextColumn();
+            var data = _achi.Data[i];
+            if (data.Max > 0)
+                ImGui.ProgressBar((float)data.Cur / data.Max, new(120, 0), $"{data.Cur} / {data.Max}");
+            else
+                _achi.Request(data.Id);
 
             ImGui.TableNextColumn();
         }
@@ -83,5 +114,9 @@ public unsafe class MainWindow() : Window("Satisfier"), IDisposable
             ImGui.TextUnformatted($"- {req[2]} '{supplySheet.GetRow(supplyIndex, req[2])!.Item.Value?.Name}'{(bonusOverride != null && (bonusOverride.Unknown4 == i + 1 || bonusOverride.Unknown5 == i + 1) ? " *****" : "")}");
         }
         ImGui.TextUnformatted($"Current NPC: {inst->CurrentNpc}, supply={inst->CurrentSupplyRowId}");
+
+        var ui = UIState.Instance();
+        ImGui.TextUnformatted($"Player loaded: {ui->PlayerState.IsLoaded}");
+        ImGui.TextUnformatted($"Achievement state: complete={ui->Achievement.State}, progress={ui->Achievement.ProgressRequestState}");
     }
 }
