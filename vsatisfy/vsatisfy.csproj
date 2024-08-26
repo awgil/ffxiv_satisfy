@@ -4,7 +4,7 @@
     <Authors></Authors>
     <Company></Company>
     <Version>0.0.0.0</Version>
-    <Description>Simplify custom deliveries.</Description>
+    <Description>Automatic satisfaction.</Description>
     <Copyright></Copyright>
     <PackageProjectUrl>https://github.com/awgil/ffxiv_satisfy</PackageProjectUrl>
   </PropertyGroup>
