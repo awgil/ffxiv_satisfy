@@ -25,7 +25,7 @@ public unsafe class MainWindow() : Window("Satisfier"), IDisposable
 
         if (isLoaded)
         {
-            IsOpen = true; // SatisfactionSupplyManager.Instance()->GetRemainingAllowances() > 0;
+            IsOpen = SatisfactionSupplyManager.Instance()->GetRemainingAllowances() > 0;
         }
         else
         {
