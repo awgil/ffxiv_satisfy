@@ -184,11 +184,14 @@ public unsafe class MainWindow : Window, IDisposable
             ImGui.TextUnformatted($"[{npc.Index}] {npc.Name}");
 
             ImGui.TableNextColumn();
-            ImGui.Checkbox("###bonus_doh", ref npc.IsBonusEffective[0]);
-            ImGui.SameLine();
-            ImGui.Checkbox("###bonus_dol", ref npc.IsBonusEffective[1]);
-            ImGui.SameLine();
-            ImGui.Checkbox("###bonus_fsh", ref npc.IsBonusEffective[2]);
+            using (ImRaii.Disabled())
+            {
+                ImGui.Checkbox("###bonus_doh", ref npc.IsBonusEffective[0]);
+                ImGui.SameLine();
+                ImGui.Checkbox("###bonus_dol", ref npc.IsBonusEffective[1]);
+                ImGui.SameLine();
+                ImGui.Checkbox("###bonus_fsh", ref npc.IsBonusEffective[2]);
+            }
 
             ImGui.TableNextColumn();
             ImGui.ProgressBar((float)npc.UsedDeliveries / npc.MaxDeliveries, new(120, 0), $"{npc.UsedDeliveries} / {npc.MaxDeliveries}");
