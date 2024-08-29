@@ -2,6 +2,7 @@
 using Dalamud.Game;
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
+using Dalamud.Plugin.Services;
 using System.Reflection;
 
 namespace Satisfy;
@@ -10,8 +11,9 @@ public sealed class Plugin : IDalamudPlugin
 {
     private WindowSystem WindowSystem = new("vsatisfy");
     private MainWindow _wndMain;
+    private ICommandManager _cmd;
 
-    public Plugin(IDalamudPluginInterface dalamud, ISigScanner sigScanner)
+    public Plugin(IDalamudPluginInterface dalamud, ISigScanner sigScanner, ICommandManager commandManager)
     {
         if (!dalamud.ConfigDirectory.Exists)
             dalamud.ConfigDirectory.Create();
@@ -28,8 +30,10 @@ public sealed class Plugin : IDalamudPlugin
         dalamud.Create<Service>();
 
         _wndMain = new();
-        _wndMain.IsOpen = true;
         WindowSystem.AddWindow(_wndMain);
+
+        _cmd = commandManager;
+        commandManager.AddHandler("/vsatisfy", new((_, _) => _wndMain.IsOpen ^= true));
 
         dalamud.UiBuilder.Draw += WindowSystem.Draw;
         dalamud.UiBuilder.OpenConfigUi += () => _wndMain.IsOpen = true;
@@ -37,6 +41,7 @@ public sealed class Plugin : IDalamudPlugin
 
     public void Dispose()
     {
+        _cmd.RemoveHandler("/vsatisfy");
         WindowSystem.RemoveAllWindows();
         _wndMain.Dispose();
     }
