@@ -22,8 +22,15 @@ public unsafe class MainWindow : Window, IDisposable
         public uint AchievementId;
         public uint AchievementCur;
         public uint AchievementMax;
+        public uint AetheryteId; // aetheryte closest to npc & vendor
 
         public uint SupplyIndex => (uint)SupplyIndices[Rank];
+
+        public void InitHardcodedData(uint achievementId, uint aetheryteId)
+        {
+            AchievementId = achievementId;
+            AetheryteId = aetheryteId;
+        }
     }
 
     private readonly Achievements _achi = new();
@@ -50,16 +57,16 @@ public unsafe class MainWindow : Window, IDisposable
         }
 
         // hardcoded stuff
-        _npcs[0].AchievementId = 1784;
-        _npcs[1].AchievementId = 1979;
-        _npcs[2].AchievementId = 2077;
-        _npcs[3].AchievementId = 2193;
-        _npcs[4].AchievementId = 2435;
-        _npcs[5].AchievementId = 2633;
-        _npcs[6].AchievementId = 2845;
-        _npcs[7].AchievementId = 3069;
-        _npcs[8].AchievementId = 3173;
-        _npcs[9].AchievementId = 3361;
+        _npcs[0].InitHardcodedData(1784, 75);
+        _npcs[1].InitHardcodedData(1979, 104);
+        _npcs[2].InitHardcodedData(2077, 105);
+        _npcs[3].InitHardcodedData(2193, 75);
+        _npcs[4].InitHardcodedData(2435, 134);
+        _npcs[5].InitHardcodedData(2633, 70);
+        _npcs[6].InitHardcodedData(2845, 70);
+        _npcs[7].InitHardcodedData(3069, 182);
+        _npcs[8].InitHardcodedData(3173, 144);
+        _npcs[9].InitHardcodedData(3361, 167);
     }
 
     public void Dispose()
@@ -198,6 +205,8 @@ public unsafe class MainWindow : Window, IDisposable
         ImGui.TableHeadersRow();
         foreach (var npc in _npcs)
         {
+            using var id = ImRaii.PushId(npc.Index);
+
             ImGui.TableNextColumn();
             ImGui.TextUnformatted($"[{npc.Index}] {npc.Name}");
 
@@ -219,6 +228,8 @@ public unsafe class MainWindow : Window, IDisposable
                 ImGui.ProgressBar((float)npc.AchievementCur / npc.AchievementMax, new(120, 0), $"{npc.AchievementCur} / {npc.AchievementMax}");
 
             ImGui.TableNextColumn();
+            if (ImGui.Button("Teleport"))
+                UIState.Instance()->Telepo.Teleport(npc.AetheryteId, 0);
         }
     }
 
