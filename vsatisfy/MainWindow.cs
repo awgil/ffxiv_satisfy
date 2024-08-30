@@ -19,6 +19,9 @@ public unsafe class MainWindow : Window, IDisposable
         public bool[] IsBonusOverride = [false, false, false];
         public bool[] IsBonusEffective = [false, false, false];
         public uint[] Rewards = [0, 0, 0];
+        public uint AchievementId;
+        public uint AchievementCur;
+        public uint AchievementMax;
 
         public uint SupplyIndex => (uint)SupplyIndices[Rank];
     }
@@ -30,6 +33,8 @@ public unsafe class MainWindow : Window, IDisposable
 
     public MainWindow() : base("Satisfier")
     {
+        _achi.AchievementProgress += OnAchievementProgress;
+
         var inst = SatisfactionSupplyManager.Instance();
         var npcSheet = Service.LuminaSheet<SatisfactionNpc>()!;
         if (inst->Satisfaction.Length + 1 != npcSheet.RowCount)
@@ -43,10 +48,23 @@ public unsafe class MainWindow : Window, IDisposable
             var npcData = npcSheet.GetRow((uint)(i + 1))!;
             _npcs.Add(new(i, npcData.Npc.Value!.Singular, npcData.DeliveriesPerWeek, npcData.SupplyIndex));
         }
+
+        // hardcoded stuff
+        _npcs[0].AchievementId = 1784;
+        _npcs[1].AchievementId = 1979;
+        _npcs[2].AchievementId = 2077;
+        _npcs[3].AchievementId = 2193;
+        _npcs[4].AchievementId = 2435;
+        _npcs[5].AchievementId = 2633;
+        _npcs[6].AchievementId = 2845;
+        _npcs[7].AchievementId = 3069;
+        _npcs[8].AchievementId = 3173;
+        _npcs[9].AchievementId = 3361;
     }
 
     public void Dispose()
     {
+        _achi.AchievementProgress -= OnAchievementProgress;
         _achi.Dispose();
     }
 
@@ -62,7 +80,8 @@ public unsafe class MainWindow : Window, IDisposable
         }
         else
         {
-            _achi.Reset();
+            foreach (var npc in _npcs)
+                npc.AchievementCur = npc.AchievementMax = 0;
             IsOpen = false;
         }
         _wasLoaded = isLoaded;
@@ -126,10 +145,9 @@ public unsafe class MainWindow : Window, IDisposable
                 AddPotentialReward(reward.UnkData1[1].RewardCurrency, reward.UnkData1[1].QuantityHigh * reward.Unknown0 / 100, npc.MaxDeliveries - npc.UsedDeliveries); // todo: don't add at low level?..
             }
 
-            var achievement = _achi.Data[npc.Index];
-            if (achievement.Max == 0)
+            if (npc.AchievementMax == 0 && npc.AchievementId != 0)
             {
-                _achi.Request(achievement.Id);
+                _achi.Request(npc.AchievementId);
             }
         }
 
@@ -197,9 +215,8 @@ public unsafe class MainWindow : Window, IDisposable
             ImGui.ProgressBar((float)npc.UsedDeliveries / npc.MaxDeliveries, new(120, 0), $"{npc.UsedDeliveries} / {npc.MaxDeliveries}");
 
             ImGui.TableNextColumn();
-            var data = _achi.Data[npc.Index];
-            if (data.Max > 0)
-                ImGui.ProgressBar((float)data.Cur / data.Max, new(120, 0), $"{data.Cur} / {data.Max}");
+            if (npc.AchievementMax > 0)
+                ImGui.ProgressBar((float)npc.AchievementCur / npc.AchievementMax, new(120, 0), $"{npc.AchievementCur} / {npc.AchievementMax}");
 
             ImGui.TableNextColumn();
         }
@@ -260,5 +277,15 @@ public unsafe class MainWindow : Window, IDisposable
         var ui = UIState.Instance();
         ImGui.TextUnformatted($"Player loaded: {ui->PlayerState.IsLoaded}");
         ImGui.TextUnformatted($"Achievement state: complete={ui->Achievement.State}, progress={ui->Achievement.ProgressRequestState}");
+    }
+
+    private void OnAchievementProgress(uint id, uint current, uint max)
+    {
+        var npc = _npcs.FirstOrDefault(npc => npc.AchievementId == id);
+        if (npc != null)
+        {
+            npc.AchievementCur = current;
+            npc.AchievementMax = max;
+        }
     }
 }
