@@ -1,4 +1,5 @@
-﻿using Dalamud.Interface.Utility.Raii;
+﻿using Dalamud.Interface;
+using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
@@ -20,11 +21,12 @@ public unsafe class MainWindow : Window, IDisposable
         public bool[] IsBonusEffective = [false, false, false];
         public uint[] Rewards = [0, 0, 0];
         public uint AchievementId;
-        public uint AchievementCur;
+        public uint AchievementStart; // since we don't get any achievement updates while making deliveries, store state 'at the beginning of the week'
         public uint AchievementMax;
         public uint AetheryteId; // aetheryte closest to npc & vendor
 
         public uint SupplyIndex => (uint)SupplyIndices[Rank];
+        public uint AchievementCur => Math.Min(AchievementStart + (uint)UsedDeliveries, AchievementMax);
 
         public void InitHardcodedData(uint achievementId, uint aetheryteId)
         {
@@ -33,14 +35,18 @@ public unsafe class MainWindow : Window, IDisposable
         }
     }
 
+    private readonly Config _config;
     private readonly Achievements _achi = new();
     private readonly List<NPCInfo> _npcs = [];
     private readonly List<(uint Currency, int Amount, int Count)> _rewards = [];
     private bool _wasLoaded;
 
-    public MainWindow() : base("Satisfier")
+    public MainWindow(Config config) : base("Satisfier")
     {
+        _config = config;
         _achi.AchievementProgress += OnAchievementProgress;
+
+        TitleBarButtons.Add(new() { Icon = FontAwesomeIcon.Cog, IconOffset = new(1), Click = _ => ImGui.OpenPopup("###config") });
 
         var inst = SatisfactionSupplyManager.Instance();
         var npcSheet = Service.LuminaSheet<SatisfactionNpc>()!;
@@ -83,12 +89,12 @@ public unsafe class MainWindow : Window, IDisposable
 
         if (isLoaded)
         {
-            IsOpen = SatisfactionSupplyManager.Instance()->GetRemainingAllowances() > 0;
+            IsOpen = _config.AutoShowIfIncomplete && SatisfactionSupplyManager.Instance()->GetRemainingAllowances() > 0;
         }
         else
         {
             foreach (var npc in _npcs)
-                npc.AchievementCur = npc.AchievementMax = 0;
+                npc.AchievementStart = npc.AchievementMax = 0;
             IsOpen = false;
         }
         _wasLoaded = isLoaded;
@@ -96,6 +102,7 @@ public unsafe class MainWindow : Window, IDisposable
 
     public override void Draw()
     {
+        DrawConfig();
         if (_wasLoaded)
         {
             UpdateData();
@@ -103,8 +110,15 @@ public unsafe class MainWindow : Window, IDisposable
             DrawCurrenciesTable();
         }
 
-        if (ImGui.CollapsingHeader("Debug data"))
+        if (_config.ShowDebugUI && ImGui.CollapsingHeader("Debug data"))
             DrawDebug();
+    }
+
+    private void DrawConfig()
+    {
+        using var popup = ImRaii.Popup("###config");
+        if (popup)
+            _config.Draw();
     }
 
     private void UpdateData()
@@ -152,7 +166,7 @@ public unsafe class MainWindow : Window, IDisposable
                 AddPotentialReward(reward.UnkData1[1].RewardCurrency, reward.UnkData1[1].QuantityHigh * reward.Unknown0 / 100, npc.MaxDeliveries - npc.UsedDeliveries); // todo: don't add at low level?..
             }
 
-            if (npc.AchievementMax == 0 && npc.AchievementId != 0)
+            if (npc.AchievementMax == 0 && npc.AchievementId != 0 && _config.AutoFetchAchievements)
             {
                 _achi.Request(npc.AchievementId);
             }
@@ -226,6 +240,8 @@ public unsafe class MainWindow : Window, IDisposable
             ImGui.TableNextColumn();
             if (npc.AchievementMax > 0)
                 ImGui.ProgressBar((float)npc.AchievementCur / npc.AchievementMax, new(120, 0), $"{npc.AchievementCur} / {npc.AchievementMax}");
+            else if (npc.AchievementId != 0 && !_config.AutoFetchAchievements && ImGui.Button("Fetch...", new(120, 0)))
+                _achi.Request(npc.AchievementId);
 
             ImGui.TableNextColumn();
             if (ImGui.Button("Teleport"))
@@ -268,6 +284,10 @@ public unsafe class MainWindow : Window, IDisposable
 
     private void DrawDebug()
     {
+        if (ImGui.Button("Reset achievement data"))
+            foreach (var npc in _npcs)
+                npc.AchievementStart = npc.AchievementMax = 0;
+
         var inst = SatisfactionSupplyManager.Instance();
         var supplySheet = Service.LuminaSheet<SatisfactionSupply>()!;
         var calcBonus = Calculations.CalculateBonusGuarantee();
@@ -295,7 +315,7 @@ public unsafe class MainWindow : Window, IDisposable
         var npc = _npcs.FirstOrDefault(npc => npc.AchievementId == id);
         if (npc != null)
         {
-            npc.AchievementCur = current;
+            npc.AchievementStart = current - (uint)npc.UsedDeliveries;
             npc.AchievementMax = max;
         }
     }

@@ -29,7 +29,11 @@ public sealed class Plugin : IDalamudPlugin
 
         dalamud.Create<Service>();
 
-        _wndMain = new();
+        var config = new Config();
+        config.Load(dalamud.ConfigFile);
+        config.Modified += () => config.Save(dalamud.ConfigFile);
+
+        _wndMain = new(config);
         WindowSystem.AddWindow(_wndMain);
 
         _cmd = commandManager;
