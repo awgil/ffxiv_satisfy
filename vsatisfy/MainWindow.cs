@@ -2,16 +2,23 @@
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
 using FFXIVClientStructs.FFXIV.Client.Game;
+using FFXIVClientStructs.FFXIV.Client.Game.Control;
+using FFXIVClientStructs.FFXIV.Client.Game.Event;
+using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
+using FFXIVClientStructs.FFXIV.Client.UI;
+using FFXIVClientStructs.FFXIV.Component.GUI;
+using FFXIVClientStructs.Interop;
 using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
+using System.Numerics;
 using System.Runtime.InteropServices;
 
 namespace Satisfy;
 
 public unsafe class MainWindow : Window, IDisposable
 {
-    public record class NPCInfo(int Index, string Name, int MaxDeliveries, int[] SupplyIndices)
+    public record class NPCInfo(int Index, uint TurninId, string Name, int MaxDeliveries, int[] SupplyIndices)
     {
         public readonly int[] SupplyIndices = [.. SupplyIndices];
         public int Rank;
@@ -20,18 +27,23 @@ public unsafe class MainWindow : Window, IDisposable
         public bool[] IsBonusOverride = [false, false, false];
         public bool[] IsBonusEffective = [false, false, false];
         public uint[] Rewards = [0, 0, 0];
+        public uint[] TurnInItems = [0, 0, 0];
         public uint AchievementId;
         public uint AchievementStart; // since we don't get any achievement updates while making deliveries, store state 'at the beginning of the week'
         public uint AchievementMax;
         public uint AetheryteId; // aetheryte closest to npc & vendor
+        public uint TerritoryId;
+        public CraftTurnin? CraftData;
 
         public uint SupplyIndex => (uint)SupplyIndices[Rank];
         public uint AchievementCur => Math.Min(AchievementStart + (uint)UsedDeliveries, AchievementMax);
 
-        public void InitHardcodedData(uint achievementId, uint aetheryteId)
+        public void InitHardcodedData(uint achievementId, uint aetheryteId, uint territoryId = 0)
         {
             AchievementId = achievementId;
             AetheryteId = aetheryteId;
+            TerritoryId = territoryId != 0 ? territoryId : Service.LuminaRow<Lumina.Excel.GeneratedSheets.Aetheryte>(aetheryteId)!.Territory.Row;
+            CraftData = new((uint)SupplyIndices[1], TurninId, TerritoryId);
         }
     }
 
@@ -59,7 +71,7 @@ public unsafe class MainWindow : Window, IDisposable
         for (int i = 0; i < inst->SatisfactionRanks.Length; ++i)
         {
             var npcData = npcSheet.GetRow((uint)(i + 1))!;
-            _npcs.Add(new(i, npcData.Npc.Value!.Singular, npcData.DeliveriesPerWeek, npcData.SupplyIndex));
+            _npcs.Add(new(i, npcData.Npc.Row, npcData.Npc.Value!.Singular, npcData.DeliveriesPerWeek, npcData.SupplyIndex));
         }
 
         // hardcoded stuff
@@ -68,8 +80,8 @@ public unsafe class MainWindow : Window, IDisposable
         _npcs[2].InitHardcodedData(2077, 105);
         _npcs[3].InitHardcodedData(2193, 75);
         _npcs[4].InitHardcodedData(2435, 134);
-        _npcs[5].InitHardcodedData(2633, 70);
-        _npcs[6].InitHardcodedData(2845, 70);
+        _npcs[5].InitHardcodedData(2633, 70, 886);
+        _npcs[6].InitHardcodedData(2845, 70, 886);
         _npcs[7].InitHardcodedData(3069, 182);
         _npcs[8].InitHardcodedData(3173, 144);
         _npcs[9].InitHardcodedData(3361, 167);
@@ -145,8 +157,6 @@ public unsafe class MainWindow : Window, IDisposable
             for (int i = 0; i < npc.Requests.Length; ++i)
             {
                 var supply = supplySheet.GetRow(npc.SupplyIndex, npc.Requests[i])!;
-                npc.IsBonusEffective[i] = npc.IsBonusOverride[i] || supply.Unknown7;
-                npc.Rewards[i] = supply.Reward.Row;
                 if (npc.IsBonusOverride[i] && !supply.Unknown7)
                 {
                     var numSubrows = supplySheet.GetRowParser(npc.SupplyIndex)!.RowCount;
@@ -155,11 +165,14 @@ public unsafe class MainWindow : Window, IDisposable
                         var supplyOverride = supplySheet.GetRow(npc.SupplyIndex, j)!;
                         if (supplyOverride.Slot == supply.Slot && supplyOverride.Unknown7)
                         {
-                            npc.Rewards[i] = supplyOverride.Reward.Row;
+                            supply = supplyOverride;
                             break;
                         }
                     }
                 }
+                npc.IsBonusEffective[i] = npc.IsBonusOverride[i] || supply.Unknown7;
+                npc.Rewards[i] = supply.Reward.Row;
+                npc.TurnInItems[i] = supply.Item.Row;
 
                 var reward = Service.LuminaRow<SatisfactionSupplyReward>(npc.Rewards[i])!;
                 AddPotentialReward(reward.UnkData1[0].RewardCurrency, reward.UnkData1[0].QuantityHigh * reward.Unknown0 / 100, npc.MaxDeliveries - npc.UsedDeliveries);
@@ -244,8 +257,7 @@ public unsafe class MainWindow : Window, IDisposable
                 _achi.Request(npc.AchievementId);
 
             ImGui.TableNextColumn();
-            if (ImGui.Button("Teleport"))
-                UIState.Instance()->Telepo.Teleport(npc.AetheryteId, 0);
+            DrawActions(npc);
         }
     }
 
@@ -301,13 +313,89 @@ public unsafe class MainWindow : Window, IDisposable
             var numSubrows = supplySheet.GetRowParser(npc.SupplyIndex)!.RowCount;
             ImGui.TextUnformatted($"#{npc.Index}: rank={npc.Rank}, supply={npc.SupplyIndex} ({numSubrows} subrows), satisfaction={inst->Satisfaction[npc.Index]}, usedAllowances={npc.UsedDeliveries}");
             for (int i = 0; i < npc.Requests.Length; ++i)
-                ImGui.TextUnformatted($"- {npc.Requests[i]} '{supplySheet.GetRow(npc.SupplyIndex, npc.Requests[i])!.Item.Value?.Name}'{(npc.IsBonusOverride[i] ? " *****" : "")}");
+            {
+                var item = supplySheet.GetRow(npc.SupplyIndex, npc.Requests[i])!.Item;
+                ImGui.TextUnformatted($"- {npc.Requests[i]} '{item.Value?.Name}'{(npc.IsBonusOverride[i] ? " *****" : "")}");
+            }
+            if (npc.CraftData != null)
+            {
+                ImGui.TextUnformatted($"> buy from {npc.CraftData.VendorInstanceId:X}/{npc.CraftData.VendorShopId} @ {npc.CraftData.VendorLocation}");
+                ImGui.TextUnformatted($"> turnin to {npc.CraftData.TurnInInstanceId:X} @ {npc.CraftData.VendorLocation}");
+            }
         }
         ImGui.TextUnformatted($"Current NPC: {inst->CurrentNpc}, supply={inst->CurrentSupplyRowId}");
 
         var ui = UIState.Instance();
         ImGui.TextUnformatted($"Player loaded: {ui->PlayerState.IsLoaded}");
         ImGui.TextUnformatted($"Achievement state: complete={ui->Achievement.State}, progress={ui->Achievement.ProgressRequestState}");
+    }
+
+    private void DrawActions(NPCInfo npc)
+    {
+        var remainingTurnins = npc.MaxDeliveries - npc.UsedDeliveries;
+        if (remainingTurnins <= 0)
+            return;
+
+        if (GameMain.Instance()->CurrentTerritoryTypeId != npc.TerritoryId)
+        {
+            if (ImGui.Button("Teleport"))
+                UIState.Instance()->Telepo.Teleport(npc.AetheryteId, 0);
+            return;
+        }
+
+        if (npc.CraftData == null)
+            return;
+
+        // TODO: collectibility thresholds?
+        var remainingCrafts = remainingTurnins - InventoryManager.Instance()->GetInventoryItemCount(npc.TurnInItems[0]);
+        if (remainingCrafts > 0)
+        {
+            var ingredient = CraftTurnin.GetCraftIngredient(npc.TurnInItems[0]);
+            var requiredIngredients = ingredient.count * remainingCrafts;
+            var missingIngredients = requiredIngredients - InventoryManager.Instance()->GetInventoryItemCount(ingredient.id);
+            if (missingIngredients > 0)
+            {
+                var vendor = GameObjectManager.Instance()->Objects.GetObjectByGameObjectId(npc.CraftData.VendorInstanceId);
+                var player = GameObjectManager.Instance()->Objects.IndexSorted[0].Value;
+                if (CraftTurnin.IsShopOpen(npc.CraftData.VendorShopId))
+                {
+                    if (ImGui.Button($"Buy {missingIngredients}x {Service.LuminaRow<Item>(ingredient.id)?.Name}"))
+                        CraftTurnin.BuyItemFromShop(npc.CraftData.VendorShopId, ingredient.id, missingIngredients);
+                }
+                else if (DistXZSq(vendor, player) <= 9)
+                {
+                    if (ImGui.Button("Open shop"))
+                        TargetSystem.Instance()->InteractWithObject(vendor);
+                }
+                else
+                {
+                    // too far, move closer
+                    if (ImGui.Button("Go to vendor"))
+                        MoveTo(vendor != null ? vendor->Position : npc.CraftData.VendorLocation);
+                }
+            }
+            else
+            {
+                // TODO: craft
+            }
+        }
+        else
+        {
+            // TODO: turnin
+        }
+    }
+
+    private float DistXZSq(GameObject* a, GameObject* b)
+    {
+        if (a == null || b == null)
+            return float.MaxValue;
+        var d = a->Position - b->Position;
+        return d.X * d.X + d.Z * d.Z;
+    }
+
+    private void MoveTo(Vector3 position)
+    {
+        // TODO: implement
     }
 
     private void OnAchievementProgress(uint id, uint current, uint max)
