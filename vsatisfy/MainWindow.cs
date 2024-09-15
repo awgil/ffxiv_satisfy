@@ -360,6 +360,7 @@ public unsafe class MainWindow : Window, IDisposable
 
         // TODO: collectibility thresholds?
         var remainingCrafts = remainingTurnins - InventoryManager.Instance()->GetInventoryItemCount(npc.TurnInItems[0]);
+        remainingCrafts = 0;
         if (remainingCrafts > 0)
         {
             var ingredient = CraftTurnin.GetCraftIngredient(npc.TurnInItems[0]);
@@ -393,12 +394,26 @@ public unsafe class MainWindow : Window, IDisposable
             }
             else
             {
-                // TODO: craft
+                if (ImGui.Button("Craft"))
+                    CraftItem(npc.TurnInItems[0], remainingCrafts);
             }
         }
         else
         {
-            // TODO: turnin
+            var turnin = GameObjectManager.Instance()->Objects.GetObjectByGameObjectId(npc.CraftData.TurnInInstanceId);
+            var player = GameObjectManager.Instance()->Objects.IndexSorted[0].Value;
+            if (DistXZSq(turnin, player) <= 9)
+            {
+                // TODO: turn-in
+                if (ImGui.Button("Turn in"))
+                    ;
+            }
+            else
+            {
+                // too far, move closer
+                if (ImGui.Button("Go to turn-in"))
+                    MoveTo(turnin != null ? turnin->Position : npc.CraftData.TurnInLocation);
+            }
         }
     }
 
@@ -412,7 +427,16 @@ public unsafe class MainWindow : Window, IDisposable
 
     private void MoveTo(Vector3 position)
     {
+        // TODO: tolerance...
         _dalamud.GetIpcSubscriber<Vector3, bool, bool>("vnavmesh.SimpleMove.PathfindAndMoveTo").InvokeFunc(position, false);
+    }
+
+    private void CraftItem(uint item, int count)
+    {
+        // TODO: job selection...
+        var recipe = Service.LuminaRow<RecipeLookup>(item)?.CRP.Row ?? 0;
+        if (recipe != 0)
+            _dalamud.GetIpcSubscriber<ushort, int, object>("Artisan.CraftItem").InvokeFunc((ushort)recipe, count);
     }
 
     private void OnAchievementProgress(uint id, uint current, uint max)
