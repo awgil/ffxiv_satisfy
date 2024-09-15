@@ -1,13 +1,11 @@
 ﻿using Dalamud.Interface;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
+using Dalamud.Plugin;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
-using FFXIVClientStructs.FFXIV.Client.Game.Event;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
-using FFXIVClientStructs.FFXIV.Client.UI;
-using FFXIVClientStructs.FFXIV.Component.GUI;
 using FFXIVClientStructs.Interop;
 using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
@@ -47,14 +45,16 @@ public unsafe class MainWindow : Window, IDisposable
         }
     }
 
+    private readonly IDalamudPluginInterface _dalamud;
     private readonly Config _config;
     private readonly Achievements _achi = new();
     private readonly List<NPCInfo> _npcs = [];
     private readonly List<(uint Currency, int Amount, int Count)> _rewards = [];
     private bool _wasLoaded;
 
-    public MainWindow(Config config) : base("Satisfier")
+    public MainWindow(IDalamudPluginInterface dalamud, Config config) : base("Satisfier")
     {
+        _dalamud = dalamud;
         _config = config;
         _achi.AchievementProgress += OnAchievementProgress;
 
@@ -328,6 +328,18 @@ public unsafe class MainWindow : Window, IDisposable
         var ui = UIState.Instance();
         ImGui.TextUnformatted($"Player loaded: {ui->PlayerState.IsLoaded}");
         ImGui.TextUnformatted($"Achievement state: complete={ui->Achievement.State}, progress={ui->Achievement.ProgressRequestState}");
+
+        var target = TargetSystem.Instance()->Target;
+        if (target != null)
+        {
+            Span<nint> ptrs = stackalloc nint[0x20];
+            var handlers = (FFXIVClientStructs.FFXIV.Client.Game.Event.EventHandler**)ptrs.GetPointer(0);
+            var numHandlers = target->GetEventHandlersImpl(handlers);
+            for (int i = 0; i < numHandlers; ++i)
+            {
+                ImGui.TextUnformatted($"eh{i}: {handlers[i]->Info.EventId.Id:X}");
+            }
+        }
     }
 
     private void DrawActions(NPCInfo npc)
@@ -365,7 +377,7 @@ public unsafe class MainWindow : Window, IDisposable
                 else if (DistXZSq(vendor, player) <= 9)
                 {
                     if (ImGui.Button("Open shop"))
-                        TargetSystem.Instance()->InteractWithObject(vendor);
+                        CraftTurnin.OpenShop(vendor, npc.CraftData.VendorShopId);
                 }
                 else
                 {
@@ -395,7 +407,7 @@ public unsafe class MainWindow : Window, IDisposable
 
     private void MoveTo(Vector3 position)
     {
-        // TODO: implement
+        _dalamud.GetIpcSubscriber<Vector3, bool, bool>("vnavmesh.SimpleMove.PathfindAndMoveTo").InvokeFunc(position, false);
     }
 
     private void OnAchievementProgress(uint id, uint current, uint max)

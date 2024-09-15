@@ -33,7 +33,7 @@ public sealed class Plugin : IDalamudPlugin
         config.Load(dalamud.ConfigFile);
         config.Modified += () => config.Save(dalamud.ConfigFile);
 
-        _wndMain = new(config);
+        _wndMain = new(dalamud, config);
         WindowSystem.AddWindow(_wndMain);
 
         _cmd = commandManager;

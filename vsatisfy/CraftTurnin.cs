@@ -1,4 +1,6 @@
-﻿using FFXIVClientStructs.FFXIV.Client.Game.Event;
+﻿using FFXIVClientStructs.FFXIV.Client.Game.Control;
+using FFXIVClientStructs.FFXIV.Client.Game.Event;
+using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using Lumina.Data.Files;
 using Lumina.Data.Parsing.Layer;
@@ -97,6 +99,34 @@ public sealed class CraftTurnin
             return false;
         var proxy = (ShopEventHandler.AgentProxy*)agent->EventReceiver;
         return proxy->Handler == eh->Value;
+    }
+
+    public static unsafe bool OpenShop(GameObject* vendor, uint shopId)
+    {
+        Service.Log.Debug($"Interacting with {vendor->GetGameObjectId():X}");
+        TargetSystem.Instance()->InteractWithObject(vendor);
+        var selector = EventHandlerSelector.Instance();
+        if (selector->Target == null)
+            return true; // assume interaction was successful without selector
+
+        if (selector->Target != vendor)
+        {
+            Service.Log.Error($"Unexpected selector target {selector->Target->GetGameObjectId():X} when trying to interact with {vendor->GetGameObjectId():X}");
+            return false;
+        }
+
+        for (int i = 0; i < selector->OptionsCount; ++i)
+        {
+            if (selector->Options[i].Handler->Info.EventId.Id == shopId)
+            {
+                Service.Log.Debug($"Selecting selector option {i} for shop {shopId:X}");
+                EventFramework.Instance()->InteractWithHandlerFromSelector(i);
+                return true;
+            }
+        }
+
+        Service.Log.Error($"Failed to find shop {shopId:X} in selector for {vendor->GetGameObjectId():X}");
+        return false;
     }
 
     public static unsafe bool BuyItemFromShop(uint shopId, uint itemId, int count)
