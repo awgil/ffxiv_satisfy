@@ -386,6 +386,11 @@ public unsafe class MainWindow : Window, IDisposable
                         MoveTo(vendor != null ? vendor->Position : npc.CraftData.VendorLocation);
                 }
             }
+            else if (CraftTurnin.IsShopOpen())
+            {
+                if (ImGui.Button("Close shop"))
+                    CraftTurnin.CloseShop();
+            }
             else
             {
                 // TODO: craft

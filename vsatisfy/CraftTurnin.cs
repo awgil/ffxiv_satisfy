@@ -2,6 +2,7 @@
 using FFXIVClientStructs.FFXIV.Client.Game.Event;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
+using FFXIVClientStructs.FFXIV.Component.GUI;
 using Lumina.Data.Files;
 using Lumina.Data.Parsing.Layer;
 using Lumina.Excel.GeneratedSheets;
@@ -90,11 +91,13 @@ public sealed class CraftTurnin
         return (0, -1);
     }
 
-    public static unsafe bool IsShopOpen(uint shopId)
+    public static unsafe bool IsShopOpen(uint shopId = 0)
     {
         var agent = AgentShop.Instance();
         if (agent == null || !agent->IsAgentActive() || agent->EventReceiver == null)
             return false;
+        if (shopId == 0)
+            return true; // some shop is open...
         if (!EventFramework.Instance()->EventHandlerModule.EventHandlerMap.TryGetValuePointer(shopId, out var eh) || eh == null || eh->Value == null)
             return false;
         var proxy = (ShopEventHandler.AgentProxy*)agent->EventReceiver;
@@ -103,7 +106,7 @@ public sealed class CraftTurnin
 
     public static unsafe bool OpenShop(GameObject* vendor, uint shopId)
     {
-        Service.Log.Debug($"Interacting with {vendor->GetGameObjectId():X}");
+        Service.Log.Debug($"Interacting with {(ulong)vendor->GetGameObjectId():X}");
         TargetSystem.Instance()->InteractWithObject(vendor);
         var selector = EventHandlerSelector.Instance();
         if (selector->Target == null)
@@ -111,7 +114,7 @@ public sealed class CraftTurnin
 
         if (selector->Target != vendor)
         {
-            Service.Log.Error($"Unexpected selector target {selector->Target->GetGameObjectId():X} when trying to interact with {vendor->GetGameObjectId():X}");
+            Service.Log.Error($"Unexpected selector target {(ulong)selector->Target->GetGameObjectId():X} when trying to interact with {(ulong)vendor->GetGameObjectId():X}");
             return false;
         }
 
@@ -125,8 +128,18 @@ public sealed class CraftTurnin
             }
         }
 
-        Service.Log.Error($"Failed to find shop {shopId:X} in selector for {vendor->GetGameObjectId():X}");
+        Service.Log.Error($"Failed to find shop {shopId:X} in selector for {(ulong)vendor->GetGameObjectId():X}");
         return false;
+    }
+
+    public static unsafe bool CloseShop()
+    {
+        var agent = AgentShop.Instance();
+        if (agent == null || agent->EventReceiver == null)
+            return false;
+        var proxy = (ShopEventHandler.AgentProxy*)agent->EventReceiver;
+        proxy->Handler->CancelInteraction();
+        return true;
     }
 
     public static unsafe bool BuyItemFromShop(uint shopId, uint itemId, int count)
