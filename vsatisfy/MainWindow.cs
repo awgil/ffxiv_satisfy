@@ -299,6 +299,9 @@ public unsafe class MainWindow : Window, IDisposable
         if (ImGui.Button("Reset achievement data"))
             foreach (var npc in _npcs)
                 npc.AchievementStart = npc.AchievementMax = 0;
+        ImGui.SameLine();
+        if (ImGui.Button("Stop movement"))
+            StopMove();
 
         var inst = SatisfactionSupplyManager.Instance();
         var supplySheet = Service.LuminaSheet<SatisfactionSupply>()!;
@@ -360,7 +363,6 @@ public unsafe class MainWindow : Window, IDisposable
 
         // TODO: collectibility thresholds?
         var remainingCrafts = remainingTurnins - InventoryManager.Instance()->GetInventoryItemCount(npc.TurnInItems[0]);
-        remainingCrafts = 0;
         if (remainingCrafts > 0)
         {
             var ingredient = CraftTurnin.GetCraftIngredient(npc.TurnInItems[0]);
@@ -429,6 +431,11 @@ public unsafe class MainWindow : Window, IDisposable
     {
         // TODO: tolerance...
         _dalamud.GetIpcSubscriber<Vector3, bool, bool>("vnavmesh.SimpleMove.PathfindAndMoveTo").InvokeFunc(position, false);
+    }
+
+    private void StopMove()
+    {
+        _dalamud.GetIpcSubscriber<object>("vnavmesh.Path.Stop").InvokeAction();
     }
 
     private void CraftItem(uint item, int count)
