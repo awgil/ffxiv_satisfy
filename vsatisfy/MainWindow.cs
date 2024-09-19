@@ -6,6 +6,7 @@ using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
+using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.Interop;
 using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
@@ -52,6 +53,9 @@ public unsafe class MainWindow : Window, IDisposable
     private readonly List<(uint Currency, int Amount, int Count)> _rewards = [];
     private bool _wasLoaded;
 
+    //private delegate void* CtorDelegate(AtkUnitBase* self);
+    //private Hook<CtorDelegate> _ctorHook;
+
     public MainWindow(IDalamudPluginInterface dalamud, Config config) : base("Satisfier")
     {
         _dalamud = dalamud;
@@ -85,12 +89,17 @@ public unsafe class MainWindow : Window, IDisposable
         _npcs[7].InitHardcodedData(3069, 182);
         _npcs[8].InitHardcodedData(3173, 144);
         _npcs[9].InitHardcodedData(3361, 167);
+
+        //_ctorHook = Service.Hook.HookFromAddress<CtorDelegate>(Service.SigScanner.Module.BaseAddress + 0xFD1850, CtorDetour);
+        //_ctorHook.Enable();
     }
 
     public void Dispose()
     {
         _achi.AchievementProgress -= OnAchievementProgress;
         _achi.Dispose();
+
+        //_ctorHook.Dispose();
     }
 
     public override void PreOpenCheck()
@@ -332,6 +341,12 @@ public unsafe class MainWindow : Window, IDisposable
         ImGui.TextUnformatted($"Player loaded: {ui->PlayerState.IsLoaded}");
         ImGui.TextUnformatted($"Achievement state: complete={ui->Achievement.State}, progress={ui->Achievement.ProgressRequestState}");
 
+        var agentReq = AgentRequest.Instance();
+        ImGui.TextUnformatted($"NPCTrade: {ui->NpcTrade.Requests.Count}");
+        for (int i = 0; i < ui->NpcTrade.Requests.Count; ++i)
+            ImGui.TextUnformatted($"[{i}] = {ui->NpcTrade.Requests.Items[i].ItemId} '{ui->NpcTrade.Requests.Items[i].ItemName}'");
+        ImGui.TextUnformatted($"AgentReq: {agentReq->IsAgentActive()}, slot={agentReq->SelectedTurnInSlot}, opt={agentReq->SelectedTurnInSlotItemOptions}");
+
         var target = TargetSystem.Instance()->Target;
         if (target != null)
         {
@@ -347,6 +362,11 @@ public unsafe class MainWindow : Window, IDisposable
 
     private void DrawActions(NPCInfo npc)
     {
+        var crafting = Service.Conditions[Dalamud.Game.ClientState.Conditions.ConditionFlag.Crafting];
+        var preCrafting = Service.Conditions[Dalamud.Game.ClientState.Conditions.ConditionFlag.PreparingToCraft];
+        if (crafting && !preCrafting)
+            return; // actual craft in progress...
+
         var remainingTurnins = npc.MaxDeliveries - npc.UsedDeliveries;
         if (remainingTurnins <= 0)
             return;
@@ -362,7 +382,7 @@ public unsafe class MainWindow : Window, IDisposable
             return;
 
         // TODO: collectibility thresholds?
-        var remainingCrafts = remainingTurnins - InventoryManager.Instance()->GetInventoryItemCount(npc.TurnInItems[0]);
+        var remainingCrafts = remainingTurnins - InventoryManager.Instance()->GetInventoryItemCount(npc.TurnInItems[0], false, false, false, 1);
         if (remainingCrafts > 0)
         {
             var ingredient = CraftTurnin.GetCraftIngredient(npc.TurnInItems[0]);
@@ -404,11 +424,36 @@ public unsafe class MainWindow : Window, IDisposable
         {
             var turnin = GameObjectManager.Instance()->Objects.GetObjectByGameObjectId(npc.CraftData.TurnInInstanceId);
             var player = GameObjectManager.Instance()->Objects.IndexSorted[0].Value;
-            if (DistXZSq(turnin, player) <= 9)
+            if (crafting)
+            {
+                if (ImGui.Button("Exit craft mode"))
+                    CraftTurnin.ExitCrafting();
+            }
+            else if (CraftTurnin.IsTalkInProgress())
+            {
+                if (ImGui.Button("Progress talk"))
+                    CraftTurnin.ProgressTalk();
+            }
+            else if (CraftTurnin.IsTurnInRequestInProgress(npc.TurnInItems[0]))
+            {
+                if (ImGui.Button("Put turn-in item"))
+                    CraftTurnin.TurnInRequestCommit();
+            }
+            else if (CraftTurnin.IsTurnInSupplyInProgress((uint)npc.Index + 1))
+            {
+                if (ImGui.Button("Turn in item"))
+                    CraftTurnin.TurnInSupply(0);
+            }
+            else if (CraftTurnin.IsTurnInSelectInProgress())
+            {
+                if (ImGui.Button("Select turn-in"))
+                    CraftTurnin.SelectTurnIn();
+            }
+            else if (DistXZSq(turnin, player) <= 9)
             {
                 // TODO: turn-in
-                if (ImGui.Button("Turn in"))
-                    ;
+                if (ImGui.Button("Interact with turn in"))
+                    TargetSystem.Instance()->InteractWithObject(turnin);
             }
             else
             {
@@ -443,7 +488,7 @@ public unsafe class MainWindow : Window, IDisposable
         // TODO: job selection...
         var recipe = Service.LuminaRow<RecipeLookup>(item)?.CRP.Row ?? 0;
         if (recipe != 0)
-            _dalamud.GetIpcSubscriber<ushort, int, object>("Artisan.CraftItem").InvokeFunc((ushort)recipe, count);
+            _dalamud.GetIpcSubscriber<ushort, int, object>("Artisan.CraftItem").InvokeAction((ushort)recipe, count);
     }
 
     private void OnAchievementProgress(uint id, uint current, uint max)
@@ -455,4 +500,10 @@ public unsafe class MainWindow : Window, IDisposable
             npc.AchievementMax = max;
         }
     }
+
+    //private void* CtorDetour(AtkUnitBase* self)
+    //{
+    //    Service.Log.Debug($"foo: {(nint)self:X}");
+    //    return _ctorHook.Original(self);
+    //}
 }

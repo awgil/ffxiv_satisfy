@@ -10,6 +10,7 @@ public class Service
     [PluginService] public static IDataManager DataManager { get; private set; } = null!;
     [PluginService] public static IGameInteropProvider Hook { get; private set; } = null!;
     [PluginService] public static ISigScanner SigScanner { get; private set; } = null!;
+    [PluginService] public static ICondition Conditions { get; private set; } = null!;
 
     public static Lumina.GameData LuminaGameData => DataManager.GameData;
     public static Lumina.Excel.ExcelSheet<T>? LuminaSheet<T>() where T : Lumina.Excel.ExcelRow => LuminaGameData.GetExcelSheet<T>(Lumina.Data.Language.English);

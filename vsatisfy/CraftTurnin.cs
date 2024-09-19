@@ -1,8 +1,11 @@
 ﻿using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.Event;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
+using FFXIVClientStructs.FFXIV.Client.Game.UI;
+using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
+using FFXIVClientStructs.Interop;
 using Lumina.Data.Files;
 using Lumina.Data.Parsing.Layer;
 using Lumina.Excel.GeneratedSheets;
@@ -171,5 +174,118 @@ public sealed class CraftTurnin
 
         Service.Log.Error($"Did not find item {itemId} in shop {shopId:X}");
         return false;
+    }
+
+    public static unsafe void ExitCrafting()
+    {
+        //AtkValue res = default, param = default;
+        //param.SetInt(-1);
+        //AgentRecipeNote.Instance()->ReceiveEvent(&res, &param, 1, 0);
+        AgentRecipeNote.Instance()->Hide();
+    }
+
+    public static unsafe bool IsTalkInProgress()
+    {
+        var addon = RaptureAtkUnitManager.Instance()->GetAddonByName("Talk");
+        return addon != null && addon->IsVisible && addon->IsReady;
+    }
+
+    public static unsafe void ProgressTalk()
+    {
+        var addon = RaptureAtkUnitManager.Instance()->GetAddonByName("Talk");
+        if (addon != null && addon->IsReady)
+        {
+            var evt = new AtkEvent() { Listener = &addon->AtkEventListener, Target = &AtkStage.Instance()->AtkEventTarget };
+            var data = new AtkEventData();
+            addon->ReceiveEvent(AtkEventType.MouseClick, 0, &evt, &data);
+        }
+    }
+
+    // TODO: this really needs revision...
+    public static unsafe bool IsTurnInSelectInProgress()
+    {
+        var addon = RaptureAtkUnitManager.Instance()->GetAddonByName("SelectString");
+        return addon != null && addon->IsVisible && addon->IsReady;
+    }
+
+    // TODO: this really needs revision...
+    public static unsafe void SelectTurnIn()
+    {
+        var addon = RaptureAtkUnitManager.Instance()->GetAddonByName("SelectString");
+        if (addon != null && addon->IsReady)
+        {
+            AtkValue val = default;
+            val.SetInt(0);
+            addon->FireCallback(1, &val, true);
+        }
+    }
+
+    public static unsafe bool IsTurnInSupplyInProgress(uint npcIndex)
+    {
+        var agent = AgentSatisfactionSupply.Instance();
+        return agent->IsAgentActive() && agent->NpcInfo.Id == npcIndex && agent->NpcInfo.Valid && agent->NpcInfo.Initialized;
+    }
+
+    public static unsafe void TurnInSupply(int slot)
+    {
+        var agent = AgentSatisfactionSupply.Instance();
+        var res = new AtkValue();
+        Span<AtkValue> values = stackalloc AtkValue[2];
+        values[0].SetInt(1);
+        values[1].SetInt(slot);
+        agent->ReceiveEvent(&res, values.GetPointer(0), 2, 0);
+    }
+
+    public static unsafe bool IsTurnInRequestInProgress(uint itemId)
+    {
+        var ui = UIState.Instance();
+        return AgentRequest.Instance()->IsAgentActive() && ui->NpcTrade.Requests.Count == 1 && ui->NpcTrade.Requests.Items[0].ItemId == itemId;
+    }
+
+    public static unsafe void TurnInRequestCommit()
+    {
+        var agent = AgentRequest.Instance();
+        if (!agent->IsAgentActive())
+        {
+            Service.Log.Error("Agent not active...");
+            return;
+        }
+
+        if (agent->SelectedTurnInSlot >= 0)
+        {
+            Service.Log.Error($"Turn-in already in progress for slot {agent->SelectedTurnInSlot}");
+            return;
+        }
+
+        var res = new AtkValue();
+        Span<AtkValue> param = stackalloc AtkValue[4];
+        param[0].SetInt(2); // start turnin
+        param[1].SetInt(0); // slot
+        param[2].SetInt(0); // ???
+        param[3].SetInt(0); // ???
+        agent->ReceiveEvent(&res, param.GetPointer(0), 4, 0);
+
+        if (agent->SelectedTurnInSlot != 0 || agent->SelectedTurnInSlotItemOptions <= 0)
+        {
+            Service.Log.Error($"Failed to start turn-in: cur slot={agent->SelectedTurnInSlot}, count={agent->SelectedTurnInSlotItemOptions}");
+            return;
+        }
+
+        param[0].SetInt(0); // confirm
+        param[1].SetInt(0); // option #0
+        agent->ReceiveEvent(&res, param.GetPointer(0), 4, 1);
+
+        if (agent->SelectedTurnInSlot >= 0)
+        {
+            Service.Log.Error($"Turn-in not confirmed: cur slot={agent->SelectedTurnInSlot}");
+            return;
+        }
+
+        // commit
+        var addonId = agent->AddonId;
+        agent->ReceiveEvent(&res, param.GetPointer(0), 4, 0);
+        var addon = RaptureAtkUnitManager.Instance()->GetAddonById((ushort)addonId);
+        if (addon != null && addon->IsVisible)
+            addon->Close(false);
     }
 }
