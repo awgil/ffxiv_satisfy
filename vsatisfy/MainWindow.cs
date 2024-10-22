@@ -4,57 +4,24 @@ using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
-using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.Interop;
 using ImGuiNET;
 using Lumina.Excel.GeneratedSheets;
-using System.Numerics;
 using System.Runtime.InteropServices;
 
 namespace Satisfy;
 
 public unsafe class MainWindow : Window, IDisposable
 {
-    public record class NPCInfo(int Index, uint TurninId, string Name, int MaxDeliveries, int[] SupplyIndices)
-    {
-        public readonly int[] SupplyIndices = [.. SupplyIndices];
-        public int Rank;
-        public int UsedDeliveries;
-        public uint[] Requests = [];
-        public bool[] IsBonusOverride = [false, false, false];
-        public bool[] IsBonusEffective = [false, false, false];
-        public uint[] Rewards = [0, 0, 0];
-        public uint[] TurnInItems = [0, 0, 0];
-        public uint AchievementId;
-        public uint AchievementStart; // since we don't get any achievement updates while making deliveries, store state 'at the beginning of the week'
-        public uint AchievementMax;
-        public uint AetheryteId; // aetheryte closest to npc & vendor
-        public uint TerritoryId;
-        public CraftTurnin? CraftData;
-
-        public uint SupplyIndex => (uint)SupplyIndices[Rank];
-        public uint AchievementCur => Math.Min(AchievementStart + (uint)UsedDeliveries, AchievementMax);
-
-        public void InitHardcodedData(uint achievementId, uint aetheryteId, uint territoryId = 0)
-        {
-            AchievementId = achievementId;
-            AetheryteId = aetheryteId;
-            TerritoryId = territoryId != 0 ? territoryId : Service.LuminaRow<Lumina.Excel.GeneratedSheets.Aetheryte>(aetheryteId)!.Territory.Row;
-            CraftData = new((uint)SupplyIndices[1], TurninId, TerritoryId);
-        }
-    }
-
     private readonly IDalamudPluginInterface _dalamud;
     private readonly Config _config;
     private readonly Achievements _achi = new();
+    private readonly Automation _auto = new();
     private readonly List<NPCInfo> _npcs = [];
     private readonly List<(uint Currency, int Amount, int Count)> _rewards = [];
     private bool _wasLoaded;
-
-    //private delegate void* CtorDelegate(AtkUnitBase* self);
-    //private Hook<CtorDelegate> _ctorHook;
 
     public MainWindow(IDalamudPluginInterface dalamud, Config config) : base("Satisfier")
     {
@@ -89,17 +56,14 @@ public unsafe class MainWindow : Window, IDisposable
         _npcs[7].InitHardcodedData(3069, 182);
         _npcs[8].InitHardcodedData(3173, 144);
         _npcs[9].InitHardcodedData(3361, 167);
-
-        //_ctorHook = Service.Hook.HookFromAddress<CtorDelegate>(Service.SigScanner.Module.BaseAddress + 0xFD1850, CtorDetour);
-        //_ctorHook.Enable();
     }
 
     public void Dispose()
     {
+        _auto.Dispose();
+
         _achi.AchievementProgress -= OnAchievementProgress;
         _achi.Dispose();
-
-        //_ctorHook.Dispose();
     }
 
     public override void PreOpenCheck()
@@ -230,6 +194,12 @@ public unsafe class MainWindow : Window, IDisposable
 
     private void DrawMainTable()
     {
+        using (ImRaii.Disabled(!_auto.Running))
+            if (ImGui.Button("Stop current task"))
+                _auto.Stop();
+        ImGui.SameLine();
+        ImGui.TextUnformatted($"Status: {_auto.CurrentTask?.Status ?? "idle"}");
+
         using var table = ImRaii.Table("main_table", 5);
         if (!table)
             return;
@@ -308,9 +278,6 @@ public unsafe class MainWindow : Window, IDisposable
         if (ImGui.Button("Reset achievement data"))
             foreach (var npc in _npcs)
                 npc.AchievementStart = npc.AchievementMax = 0;
-        ImGui.SameLine();
-        if (ImGui.Button("Stop movement"))
-            StopMove();
 
         var inst = SatisfactionSupplyManager.Instance();
         var supplySheet = Service.LuminaSheet<SatisfactionSupply>()!;
@@ -341,6 +308,10 @@ public unsafe class MainWindow : Window, IDisposable
         ImGui.TextUnformatted($"Player loaded: {ui->PlayerState.IsLoaded}");
         ImGui.TextUnformatted($"Achievement state: complete={ui->Achievement.State}, progress={ui->Achievement.ProgressRequestState}");
 
+        var agentSat = AgentSatisfactionSupply.Instance();
+        var addonSat = Game.GetFocusedAddonByID(agentSat->AddonId);
+        ImGui.TextUnformatted($"AgentSat: {agentSat->IsAgentActive()}/{(addonSat != null ? addonSat->IsVisible : null)}, id={agentSat->NpcInfo.Id}");
+
         var agentReq = AgentRequest.Instance();
         ImGui.TextUnformatted($"NPCTrade: {ui->NpcTrade.Requests.Count}");
         for (int i = 0; i < ui->NpcTrade.Requests.Count; ++i)
@@ -362,133 +333,12 @@ public unsafe class MainWindow : Window, IDisposable
 
     private void DrawActions(NPCInfo npc)
     {
-        var crafting = Service.Conditions[Dalamud.Game.ClientState.Conditions.ConditionFlag.Crafting];
-        var preCrafting = Service.Conditions[Dalamud.Game.ClientState.Conditions.ConditionFlag.PreparingToCraft];
-        if (crafting && !preCrafting)
-            return; // actual craft in progress...
-
         var remainingTurnins = npc.MaxDeliveries - npc.UsedDeliveries;
         if (remainingTurnins <= 0)
             return;
 
-        if (GameMain.Instance()->CurrentTerritoryTypeId != npc.TerritoryId)
-        {
-            if (ImGui.Button("Teleport"))
-                UIState.Instance()->Telepo.Teleport(npc.AetheryteId, 0);
-            return;
-        }
-
-        if (npc.CraftData == null)
-            return;
-
-        // TODO: collectibility thresholds?
-        var remainingCrafts = remainingTurnins - InventoryManager.Instance()->GetInventoryItemCount(npc.TurnInItems[0], false, false, false, 1);
-        if (remainingCrafts > 0)
-        {
-            var ingredient = CraftTurnin.GetCraftIngredient(npc.TurnInItems[0]);
-            var requiredIngredients = ingredient.count * remainingCrafts;
-            var missingIngredients = requiredIngredients - InventoryManager.Instance()->GetInventoryItemCount(ingredient.id);
-            if (missingIngredients > 0)
-            {
-                var vendor = GameObjectManager.Instance()->Objects.GetObjectByGameObjectId(npc.CraftData.VendorInstanceId);
-                var player = GameObjectManager.Instance()->Objects.IndexSorted[0].Value;
-                if (CraftTurnin.IsShopOpen(npc.CraftData.VendorShopId))
-                {
-                    if (ImGui.Button($"Buy {missingIngredients}x {Service.LuminaRow<Item>(ingredient.id)?.Name}"))
-                        CraftTurnin.BuyItemFromShop(npc.CraftData.VendorShopId, ingredient.id, missingIngredients);
-                }
-                else if (DistXZSq(vendor, player) <= 9)
-                {
-                    if (ImGui.Button("Open shop"))
-                        CraftTurnin.OpenShop(vendor, npc.CraftData.VendorShopId);
-                }
-                else
-                {
-                    // too far, move closer
-                    if (ImGui.Button("Go to vendor"))
-                        MoveTo(vendor != null ? vendor->Position : npc.CraftData.VendorLocation);
-                }
-            }
-            else if (CraftTurnin.IsShopOpen())
-            {
-                if (ImGui.Button("Close shop"))
-                    CraftTurnin.CloseShop();
-            }
-            else
-            {
-                if (ImGui.Button("Craft"))
-                    CraftItem(npc.TurnInItems[0], remainingCrafts);
-            }
-        }
-        else
-        {
-            var turnin = GameObjectManager.Instance()->Objects.GetObjectByGameObjectId(npc.CraftData.TurnInInstanceId);
-            var player = GameObjectManager.Instance()->Objects.IndexSorted[0].Value;
-            if (crafting)
-            {
-                if (ImGui.Button("Exit craft mode"))
-                    CraftTurnin.ExitCrafting();
-            }
-            else if (CraftTurnin.IsTalkInProgress())
-            {
-                if (ImGui.Button("Progress talk"))
-                    CraftTurnin.ProgressTalk();
-            }
-            else if (CraftTurnin.IsTurnInRequestInProgress(npc.TurnInItems[0]))
-            {
-                if (ImGui.Button("Put turn-in item"))
-                    CraftTurnin.TurnInRequestCommit();
-            }
-            else if (CraftTurnin.IsTurnInSupplyInProgress((uint)npc.Index + 1))
-            {
-                if (ImGui.Button("Turn in item"))
-                    CraftTurnin.TurnInSupply(0);
-            }
-            else if (CraftTurnin.IsTurnInSelectInProgress())
-            {
-                if (ImGui.Button("Select turn-in"))
-                    CraftTurnin.SelectTurnIn();
-            }
-            else if (DistXZSq(turnin, player) <= 9)
-            {
-                // TODO: turn-in
-                if (ImGui.Button("Interact with turn in"))
-                    TargetSystem.Instance()->InteractWithObject(turnin);
-            }
-            else
-            {
-                // too far, move closer
-                if (ImGui.Button("Go to turn-in"))
-                    MoveTo(turnin != null ? turnin->Position : npc.CraftData.TurnInLocation);
-            }
-        }
-    }
-
-    private float DistXZSq(GameObject* a, GameObject* b)
-    {
-        if (a == null || b == null)
-            return float.MaxValue;
-        var d = a->Position - b->Position;
-        return d.X * d.X + d.Z * d.Z;
-    }
-
-    private void MoveTo(Vector3 position)
-    {
-        // TODO: tolerance...
-        _dalamud.GetIpcSubscriber<Vector3, bool, bool>("vnavmesh.SimpleMove.PathfindAndMoveTo").InvokeFunc(position, false);
-    }
-
-    private void StopMove()
-    {
-        _dalamud.GetIpcSubscriber<object>("vnavmesh.Path.Stop").InvokeAction();
-    }
-
-    private void CraftItem(uint item, int count)
-    {
-        // TODO: job selection...
-        var recipe = Service.LuminaRow<RecipeLookup>(item)?.CRP.Row ?? 0;
-        if (recipe != 0)
-            _dalamud.GetIpcSubscriber<ushort, int, object>("Artisan.CraftItem").InvokeAction((ushort)recipe, count);
+        if (ImGui.Button("Auto craft turnin"))
+            _auto.Start(new AutoCraft(npc, _dalamud));
     }
 
     private void OnAchievementProgress(uint id, uint current, uint max)
@@ -500,10 +350,4 @@ public unsafe class MainWindow : Window, IDisposable
             npc.AchievementMax = max;
         }
     }
-
-    //private void* CtorDetour(AtkUnitBase* self)
-    //{
-    //    Service.Log.Debug($"foo: {(nint)self:X}");
-    //    return _ctorHook.Original(self);
-    //}
 }
