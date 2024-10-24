@@ -60,6 +60,8 @@ public abstract class AutoTask
     // implementations are typically expected to be async (coroutines)
     protected abstract Task Execute();
 
+    protected CancellationToken CancelToken => _cts.Token;
+
     // wait for a few frames
     protected Task NextFrame(int numFramesToWait = 1) => Service.Framework.DelayTicks(numFramesToWait, _cts.Token);
 
