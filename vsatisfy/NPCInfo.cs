@@ -8,6 +8,7 @@ public record class NPCInfo(int Index, uint TurninId, string Name, int MaxDelive
     public uint[] Requests = [];
     public bool[] IsBonusOverride = [false, false, false];
     public bool[] IsBonusEffective = [false, false, false];
+    public uint[] EffectiveRequests = [0, 0, 0]; // accounts for bonus override
     public uint[] Rewards = [0, 0, 0];
     public uint[] TurnInItems = [0, 0, 0];
     public uint AchievementId;
@@ -16,6 +17,7 @@ public record class NPCInfo(int Index, uint TurninId, string Name, int MaxDelive
     public uint AetheryteId; // aetheryte closest to npc & vendor
     public uint TerritoryId;
     public CraftTurnin? CraftData;
+    public Fish? FishData;
 
     public uint SupplyIndex => (uint)SupplyIndices[Rank];
     public uint AchievementCur => Math.Min(AchievementStart + (uint)UsedDeliveries, AchievementMax);

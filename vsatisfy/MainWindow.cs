@@ -129,6 +129,7 @@ public unsafe class MainWindow : Window, IDisposable
             }
             for (int i = 0; i < npc.Requests.Length; ++i)
             {
+                npc.EffectiveRequests[i] = npc.Requests[i];
                 var supply = supplySheet.GetRow(npc.SupplyIndex, npc.Requests[i])!;
                 if (npc.IsBonusOverride[i] && !supply.Unknown7)
                 {
@@ -139,6 +140,7 @@ public unsafe class MainWindow : Window, IDisposable
                         if (supplyOverride.Slot == supply.Slot && supplyOverride.Unknown7)
                         {
                             supply = supplyOverride;
+                            npc.EffectiveRequests[i] = j;
                             break;
                         }
                     }
@@ -150,6 +152,11 @@ public unsafe class MainWindow : Window, IDisposable
                 var reward = Service.LuminaRow<SatisfactionSupplyReward>(npc.Rewards[i])!;
                 AddPotentialReward(reward.UnkData1[0].RewardCurrency, reward.UnkData1[0].QuantityHigh * reward.Unknown0 / 100, npc.MaxDeliveries - npc.UsedDeliveries);
                 AddPotentialReward(reward.UnkData1[1].RewardCurrency, reward.UnkData1[1].QuantityHigh * reward.Unknown0 / 100, npc.MaxDeliveries - npc.UsedDeliveries); // todo: don't add at low level?..
+            }
+
+            if (npc.FishData == null || npc.FishData.FishItemId != npc.TurnInItems[2])
+            {
+                npc.FishData = new(npc.TurnInItems[2]);
             }
 
             if (npc.AchievementMax == 0 && npc.AchievementId != 0 && _config.AutoFetchAchievements)
@@ -301,6 +308,13 @@ public unsafe class MainWindow : Window, IDisposable
                 ImGui.TextUnformatted($"> buy from {npc.CraftData.VendorInstanceId:X}/{npc.CraftData.VendorShopId} @ {npc.CraftData.VendorLocation}");
                 ImGui.TextUnformatted($"> turnin to {npc.CraftData.TurnInInstanceId:X} @ {npc.CraftData.VendorLocation}");
             }
+            if (npc.FishData != null)
+            {
+                if (npc.FishData.IsSpearFish)
+                    ImGui.TextUnformatted($"> spearfish from {npc.FishData.FishSpotId} '{Service.LuminaRow<SpearfishingNotebook>(npc.FishData.FishSpotId)?.PlaceName.Value?.Name}' @ {npc.FishData.Center} near {npc.FishData.ClosestAetheryteId} '{Service.LuminaRow<Aetheryte>(npc.FishData.ClosestAetheryteId)?.PlaceName.Value?.Name}'");
+                else
+                    ImGui.TextUnformatted($"> fish from {npc.FishData.FishSpotId} '{Service.LuminaRow<FishingSpot>(npc.FishData.FishSpotId)?.PlaceName.Value?.Name}' @ {npc.FishData.Center} near {npc.FishData.ClosestAetheryteId} '{Service.LuminaRow<Aetheryte>(npc.FishData.ClosestAetheryteId)?.PlaceName.Value?.Name}'");
+            }
         }
         ImGui.TextUnformatted($"Current NPC: {inst->CurrentNpc}, supply={inst->CurrentSupplyRowId}");
 
@@ -339,6 +353,9 @@ public unsafe class MainWindow : Window, IDisposable
 
         if (ImGui.Button("Auto craft turnin"))
             _auto.Start(new AutoCraft(npc, _dalamud));
+        ImGui.SameLine();
+        if (ImGui.Button("Auto fish turnin"))
+            _auto.Start(new AutoFish(npc, _dalamud));
     }
 
     private void OnAchievementProgress(uint id, uint current, uint max)

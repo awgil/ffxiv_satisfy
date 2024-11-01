@@ -42,7 +42,7 @@ public sealed class AutoCraft(NPCInfo npc, IDalamudPluginInterface dalamud) : Au
 
         Status = $"Turning in {remainingTurnins}x {ItemName(turnInItemId)}";
         await MoveTo(npc.CraftData.TurnInLocation, 3);
-        await TurnIn(npc.CraftData.TurnInInstanceId, remainingTurnins);
+        await TurnIn(npc.Index, npc.CraftData.TurnInInstanceId, npc.TurnInItems[0], 0, remainingTurnins);
     }
 
     private async Task BuyFromShop(ulong vendorInstanceId, uint shopId, uint itemId, int count)
@@ -82,26 +82,6 @@ public sealed class AutoCraft(NPCInfo npc, IDalamudPluginInterface dalamud) : Au
 
         Game.ExitCrafting();
         await WaitWhile(() => Service.Conditions[ConditionFlag.Crafting], "WaitCraftClose");
-    }
-
-    private async Task TurnIn(ulong npcInstanceId, int count)
-    {
-        using var scope = BeginScope("TurnIn");
-        if (!Game.IsTurnInSupplyInProgress((uint)npc.Index + 1))
-        {
-            ErrorIf(!Game.InteractWith(npcInstanceId), "Failed to interact with turn-in NPC");
-            await WaitUntilSkipTalk(Game.IsTurnInSelectInProgress, "WaitSelect");
-            Game.SelectTurnIn();
-        }
-        for (int i = 0; i < count; ++i)
-        {
-            await WaitUntilSkipTalk(() => Game.IsTurnInSupplyInProgress((uint)npc.Index + 1), "WaitDialog");
-            Game.TurnInSupply(0);
-            await WaitWhile(() => !Game.IsTurnInRequestInProgress(npc.TurnInItems[0]), "WaitHandIn");
-            Game.TurnInRequestCommit();
-        }
-        await WaitUntilSkipTalk(() => !Service.Conditions[ConditionFlag.OccupiedInCutSceneEvent], "WaitCutsceneStart");
-        await WaitUntilSkipTalk(() => Service.Conditions[ConditionFlag.OccupiedInCutSceneEvent], "WaitCutsceneEnd");
     }
 
     private void ArtisanCraft(ushort recipe, int count) => _artisanCraft.InvokeAction(recipe, count);

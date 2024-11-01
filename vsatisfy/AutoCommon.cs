@@ -1,4 +1,5 @@
-﻿using Dalamud.Plugin;
+﻿using Dalamud.Game.ClientState.Conditions;
+using Dalamud.Plugin;
 using Dalamud.Plugin.Ipc;
 using System.Numerics;
 using System.Threading.Tasks;
@@ -37,6 +38,26 @@ public abstract class AutoCommon(IDalamudPluginInterface dalamud) : AutoTask
         await WaitWhile(() => !Game.PlayerIsBusy(), "TeleportStart");
         await WaitWhile(Game.PlayerIsBusy, "TeleportFinish");
         ErrorIf(Game.CurrentTerritory() != territoryId, "Failed to teleport to expected zone");
+    }
+
+    protected async Task TurnIn(int npcIndex, ulong npcInstanceId, uint itemId, int slot, int count)
+    {
+        using var scope = BeginScope("TurnIn");
+        if (!Game.IsTurnInSupplyInProgress((uint)npcIndex + 1))
+        {
+            ErrorIf(!Game.InteractWith(npcInstanceId), "Failed to interact with turn-in NPC");
+            await WaitUntilSkipTalk(Game.IsTurnInSelectInProgress, "WaitSelect");
+            Game.SelectTurnIn();
+        }
+        for (int i = 0; i < count; ++i)
+        {
+            await WaitUntilSkipTalk(() => Game.IsTurnInSupplyInProgress((uint)npcIndex + 1), "WaitDialog");
+            Game.TurnInSupply(slot);
+            await WaitWhile(() => !Game.IsTurnInRequestInProgress(itemId), "WaitHandIn");
+            Game.TurnInRequestCommit();
+        }
+        await WaitUntilSkipTalk(() => !Service.Conditions[ConditionFlag.OccupiedInCutSceneEvent], "WaitCutsceneStart");
+        await WaitUntilSkipTalk(() => Service.Conditions[ConditionFlag.OccupiedInCutSceneEvent], "WaitCutsceneEnd");
     }
 
     // wait until condition is satisfied, skipping all talks as they appear
