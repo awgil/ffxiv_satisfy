@@ -1,5 +1,5 @@
 ﻿using Dalamud.Plugin;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 using System.Threading.Tasks;
 
 namespace Satisfy;
@@ -26,9 +26,9 @@ public sealed class AutoFish(NPCInfo npc, IDalamudPluginInterface dalamud) : Aut
 
             // TODO: improve move-to destination (ideally closest point where you can actually fish...)
             if (npc.FishData.IsSpearFish)
-                Status = $"Spearfishing at {Service.LuminaRow<SpearfishingNotebook>(npc.FishData.FishSpotId)?.PlaceName.Value?.Name}";
+                Status = $"Spearfishing at {Service.LuminaRow<SpearfishingNotebook>(npc.FishData.FishSpotId)?.PlaceName.ValueNullable?.Name}";
             else
-                Status = $"Fishing at {Service.LuminaRow<FishingSpot>(npc.FishData.FishSpotId)?.PlaceName.Value?.Name}";
+                Status = $"Fishing at {Service.LuminaRow<FishingSpot>(npc.FishData.FishSpotId)?.PlaceName.ValueNullable?.Name}";
             await MoveTo(npc.FishData.Center, 10);
         }
         else // TODO: full auto...

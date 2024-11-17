@@ -14,7 +14,9 @@ public class Service
     [PluginService] public static IFramework Framework { get; private set; } = null!;
 
     public static Lumina.GameData LuminaGameData => DataManager.GameData;
-    public static Lumina.Excel.ExcelSheet<T>? LuminaSheet<T>() where T : Lumina.Excel.ExcelRow => LuminaGameData.GetExcelSheet<T>(Lumina.Data.Language.English);
-    public static T? LuminaRow<T>(uint row) where T : Lumina.Excel.ExcelRow => LuminaSheet<T>()?.GetRow(row);
-    public static T? LuminaRow<T>(uint row, uint subRow) where T : Lumina.Excel.ExcelRow => LuminaSheet<T>()?.GetRow(row, subRow);
+    public static Lumina.Excel.ExcelSheet<T>? LuminaSheet<T>() where T : struct, Lumina.Excel.IExcelRow<T> => LuminaGameData?.GetExcelSheet<T>(Lumina.Data.Language.English);
+    public static Lumina.Excel.SubrowExcelSheet<T>? LuminaSheetSubrow<T>() where T : struct, Lumina.Excel.IExcelSubrow<T> => LuminaGameData?.GetSubrowExcelSheet<T>(Lumina.Data.Language.English);
+    public static T? LuminaRow<T>(uint row) where T : struct, Lumina.Excel.IExcelRow<T> => LuminaSheet<T>()?.GetRowOrDefault(row);
+    public static Lumina.Excel.SubrowCollection<T>? LuminaSubrows<T>(uint row) where T : struct, Lumina.Excel.IExcelSubrow<T> => LuminaSheetSubrow<T>()?.GetRowOrDefault(row);
+    public static T? LuminaRow<T>(uint row, ushort subRow) where T : struct, Lumina.Excel.IExcelSubrow<T> => LuminaSheetSubrow<T>()?.GetSubrowOrDefault(row, subRow);
 }

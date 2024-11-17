@@ -26,7 +26,7 @@ public record class NPCInfo(int Index, uint TurninId, string Name, int MaxDelive
     {
         AchievementId = achievementId;
         AetheryteId = aetheryteId;
-        TerritoryId = territoryId != 0 ? territoryId : Service.LuminaRow<Lumina.Excel.GeneratedSheets.Aetheryte>(aetheryteId)!.Territory.Row;
+        TerritoryId = territoryId != 0 ? territoryId : Service.LuminaRow<Lumina.Excel.Sheets.Aetheryte>(aetheryteId)!.Value.Territory.RowId;
         CraftData = new((uint)SupplyIndices[1], TurninId, TerritoryId);
     }
 }

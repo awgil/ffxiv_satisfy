@@ -1,7 +1,7 @@
 ﻿using FFXIVClientStructs.FFXIV.Client.Game.Event;
 using Lumina.Data.Files;
 using Lumina.Data.Parsing.Layer;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 using System.Numerics;
 
 namespace Satisfy;
@@ -19,10 +19,10 @@ public sealed class CraftTurnin
     {
         // note: we assume that first supply subrow for rank-one supply is always a craft (if this changes, we can check Slot column)
         // note: we assume that all ingredients are sold by the same vendor of the same shop in the same territory as turn-in npc
-        var craftedItemId = Service.LuminaRow<SatisfactionSupply>(supplyId, 0)!.Item.Row;
+        var craftedItemId = Service.LuminaRow<SatisfactionSupply>(supplyId, 0)!.Value.Item.RowId;
         var ingredientId = GetCraftIngredient(craftedItemId).id;
 
-        string scene = Service.LuminaRow<TerritoryType>(territoryId)!.Bg;
+        string scene = Service.LuminaRow<TerritoryType>(territoryId)!.Value.Bg.ToString();
         var filenameStart = scene.LastIndexOf('/') + 1;
         var planeventLayerGroup = "bg/" + scene[0..filenameStart] + "planevent.lgb";
         Service.Log.Debug($"Territory {territoryId} -> {planeventLayerGroup}");
@@ -58,12 +58,12 @@ public sealed class CraftTurnin
     }
 
     // TODO: job selection
-    public static uint GetRecipeId(uint craftedItemId) => Service.LuminaRow<RecipeLookup>(craftedItemId)?.CRP.Row ?? 0;
+    public static uint GetRecipeId(uint craftedItemId) => Service.LuminaRow<RecipeLookup>(craftedItemId)?.CRP.RowId ?? 0;
 
     public static (uint id, int count) GetCraftIngredient(uint craftedItemId)
     {
         var recipe = Service.LuminaRow<RecipeLookup>(craftedItemId)?.CRP.Value;
-        return recipe != null ? ((uint)recipe.UnkData5[0].ItemIngredient, recipe.UnkData5[0].AmountIngredient) : default;
+        return recipe != null ? (recipe.Value.Ingredient[0].RowId, recipe.Value.AmountIngredient[0]) : default;
     }
 
     private static (uint shopId, int itemIndex) FindVendorItem(uint enpcId, uint itemId)
@@ -72,18 +72,21 @@ public sealed class CraftTurnin
         if (enpcBase == null)
             return (0, -1);
 
-        foreach (var handler in enpcBase.ENpcData)
+        foreach (var handler in enpcBase.Value.ENpcData)
         {
-            if ((handler >> 16) != (uint)EventHandlerType.Shop)
+            if ((handler.RowId >> 16) != (uint)EventHandlerType.Shop)
                 continue;
 
-            var numItems = Service.LuminaSheet<GilShopItem>()!.GetRowParser(handler)?.RowCount ?? 0;
-            for (int i = 0; i < numItems; ++i)
+            var items = Service.LuminaSubrows<GilShopItem>(handler.RowId);
+            if (items == null)
+                continue;
+
+            for (int i = 0; i < items.Value.Count; ++i)
             {
-                var shopItem = Service.LuminaRow<GilShopItem>(handler, (uint)i);
-                if (shopItem?.Item.Row == itemId)
+                var shopItem = items.Value[i];
+                if (shopItem.Item.RowId == itemId)
                 {
-                    return (handler, i);
+                    return (handler.RowId, i);
                 }
             }
         }

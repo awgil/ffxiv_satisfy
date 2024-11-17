@@ -1,6 +1,6 @@
 ﻿using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.System.Framework;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 
 namespace Satisfy;
 
@@ -31,15 +31,14 @@ public unsafe static class Calculations
     {
         var inst = SatisfactionSupplyManager.Instance();
         var rank = inst->SatisfactionRanks[npcIndex];
-        var supplyIndex = Service.LuminaRow<SatisfactionNpc>((uint)npcIndex + 1)!.SupplyIndex[rank];
+        var supplyIndex = Service.LuminaRow<SatisfactionNpc>((uint)npcIndex + 1)!.Value.SatisfactionNpcParams[rank].SupplyIndex;
         return CalculateRequestedItems((uint)supplyIndex, inst->SupplySeed);
     }
 
     // see Client::Game::SatisfactionSupplyManager.onSatisfactionSupplyRead
     public static uint[] CalculateRequestedItems(uint supplyIndex, uint seed)
     {
-        var sheet = Service.LuminaSheet<SatisfactionSupply>()!;
-        var numSubRows = sheet.GetRowParser(supplyIndex)!.RowCount;
+        var subrows = Service.LuminaSubrows<SatisfactionSupply>(supplyIndex)!.Value;
 
         var h1 = (0x03CEA65Cu * supplyIndex) ^ (0x1A0DD20Eu * seed);
         var h2 = (0xDF585D5Du * supplyIndex) ^ (0x3057656Eu * seed);
@@ -50,11 +49,11 @@ public unsafe static class Calculations
         for (int iSlot = 1; iSlot < 4; ++iSlot)
         {
             var sumProbabilities = 0;
-            for (uint iSub = 0; iSub < numSubRows; ++iSub)
+            for (int iSub = 0; iSub < subrows.Count; ++iSub)
             {
-                var row = sheet.GetRow(supplyIndex, iSub)!;
+                var row = subrows[iSub];
                 if (row.Slot == iSlot)
-                    sumProbabilities += row.ProbabilityPct;
+                    sumProbabilities += row.ProbabilityPercent;
             }
 
             var hTemp = h5 ^ (h5 << 11);
@@ -65,17 +64,17 @@ public unsafe static class Calculations
             h2 = h1;
 
             var roll = h4 % sumProbabilities;
-            for (uint iSub = 0; iSub < numSubRows; ++iSub)
+            for (int iSub = 0; iSub < subrows.Count; ++iSub)
             {
-                var row = sheet.GetRow(supplyIndex, iSub)!;
+                var row = subrows[iSub];
                 if (row.Slot != iSlot)
                     continue;
-                if (roll < row.ProbabilityPct)
+                if (roll < row.ProbabilityPercent)
                 {
-                    res[iSlot - 1] = iSub;
+                    res[iSlot - 1] = (uint)iSub;
                     break;
                 }
-                roll -= row.ProbabilityPct;
+                roll -= row.ProbabilityPercent;
             }
         }
         return res;

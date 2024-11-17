@@ -8,7 +8,7 @@ using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.Interop;
 using ImGuiNET;
-using Lumina.Excel.GeneratedSheets;
+using Lumina.Excel.Sheets;
 using System.Runtime.InteropServices;
 
 namespace Satisfy;
@@ -33,16 +33,17 @@ public unsafe class MainWindow : Window, IDisposable
 
         var inst = SatisfactionSupplyManager.Instance();
         var npcSheet = Service.LuminaSheet<SatisfactionNpc>()!;
-        if (inst->Satisfaction.Length + 1 != npcSheet.RowCount)
+        if (inst->Satisfaction.Length + 1 != npcSheet.Count)
         {
-            Service.Log.Error($"Npc count mismatch between CS ({inst->Satisfaction.Length}) and lumina ({npcSheet.RowCount - 1})");
+            Service.Log.Error($"Npc count mismatch between CS ({inst->Satisfaction.Length}) and lumina ({npcSheet.Count - 1})");
             return;
         }
 
         for (int i = 0; i < inst->SatisfactionRanks.Length; ++i)
         {
-            var npcData = npcSheet.GetRow((uint)(i + 1))!;
-            _npcs.Add(new(i, npcData.Npc.Row, npcData.Npc.Value!.Singular, npcData.DeliveriesPerWeek, npcData.SupplyIndex));
+            var npcData = npcSheet.GetRow((uint)(i + 1));
+            if (npcData.Npc.RowId != 0)
+                _npcs.Add(new(i, npcData.Npc.RowId, npcData.Npc.Value.Singular.ToString(), npcData.DeliveriesPerWeek, [.. npcData.SatisfactionNpcParams.Select(p => p.SupplyIndex)]));
         }
 
         // hardcoded stuff
@@ -113,7 +114,7 @@ public unsafe class MainWindow : Window, IDisposable
         var inst = SatisfactionSupplyManager.Instance();
         var bonusOverrideRow = inst->BonusGuaranteeRowId != 0xFF ? inst->BonusGuaranteeRowId : Calculations.CalculateBonusGuarantee();
         var bonusOverride = bonusOverrideRow >= 0 ? Service.LuminaRow<SatisfactionBonusGuarantee>((uint)bonusOverrideRow) : null;
-        var supplySheet = Service.LuminaSheet<SatisfactionSupply>()!;
+        var supplySheet = Service.LuminaSheetSubrow<SatisfactionSupply>()!;
         foreach (var npc in _npcs)
         {
             npc.Rank = inst->SatisfactionRanks[npc.Index];
@@ -122,22 +123,22 @@ public unsafe class MainWindow : Window, IDisposable
             Array.Fill(npc.IsBonusOverride, false);
             if (npc.Rank == 5 && bonusOverride != null)
             {
-                var sheetIndex = npc.Index + 1;
-                npc.IsBonusOverride[0] = bonusOverride.Unknown0 == sheetIndex || bonusOverride.Unknown1 == sheetIndex;
-                npc.IsBonusOverride[1] = bonusOverride.Unknown2 == sheetIndex || bonusOverride.Unknown3 == sheetIndex;
-                npc.IsBonusOverride[2] = bonusOverride.Unknown4 == sheetIndex || bonusOverride.Unknown5 == sheetIndex;
+                var sheetIndex = (byte)(npc.Index + 1);
+                npc.IsBonusOverride[0] = bonusOverride.Value.BonusDoH.Contains(sheetIndex);
+                npc.IsBonusOverride[1] = bonusOverride.Value.BonusDoL.Contains(sheetIndex);
+                npc.IsBonusOverride[2] = bonusOverride.Value.BonusFisher.Contains(sheetIndex);
             }
+            var supplyRows = supplySheet.GetRow(npc.SupplyIndex);
             for (int i = 0; i < npc.Requests.Length; ++i)
             {
                 npc.EffectiveRequests[i] = npc.Requests[i];
-                var supply = supplySheet.GetRow(npc.SupplyIndex, npc.Requests[i])!;
-                if (npc.IsBonusOverride[i] && !supply.Unknown7)
+                var supply = supplyRows[(int)npc.Requests[i]];
+                if (npc.IsBonusOverride[i] && !supply.IsBonus)
                 {
-                    var numSubrows = supplySheet.GetRowParser(npc.SupplyIndex)!.RowCount;
-                    for (uint j = 0; j < numSubrows; ++j)
+                    for (ushort j = 0; j < supplyRows.Count; ++j)
                     {
-                        var supplyOverride = supplySheet.GetRow(npc.SupplyIndex, j)!;
-                        if (supplyOverride.Slot == supply.Slot && supplyOverride.Unknown7)
+                        var supplyOverride = supplyRows[j];
+                        if (supplyOverride.Slot == supply.Slot && supplyOverride.IsBonus)
                         {
                             supply = supplyOverride;
                             npc.EffectiveRequests[i] = j;
@@ -145,13 +146,13 @@ public unsafe class MainWindow : Window, IDisposable
                         }
                     }
                 }
-                npc.IsBonusEffective[i] = npc.IsBonusOverride[i] || supply.Unknown7;
-                npc.Rewards[i] = supply.Reward.Row;
-                npc.TurnInItems[i] = supply.Item.Row;
+                npc.IsBonusEffective[i] = npc.IsBonusOverride[i] || supply.IsBonus;
+                npc.Rewards[i] = supply.Reward.RowId;
+                npc.TurnInItems[i] = supply.Item.RowId;
 
-                var reward = Service.LuminaRow<SatisfactionSupplyReward>(npc.Rewards[i])!;
-                AddPotentialReward(reward.UnkData1[0].RewardCurrency, reward.UnkData1[0].QuantityHigh * reward.Unknown0 / 100, npc.MaxDeliveries - npc.UsedDeliveries);
-                AddPotentialReward(reward.UnkData1[1].RewardCurrency, reward.UnkData1[1].QuantityHigh * reward.Unknown0 / 100, npc.MaxDeliveries - npc.UsedDeliveries); // todo: don't add at low level?..
+                var reward = Service.LuminaRow<SatisfactionSupplyReward>(npc.Rewards[i])!.Value;
+                AddPotentialReward(reward.SatisfactionSupplyRewardData[0].RewardCurrency, reward.SatisfactionSupplyRewardData[0].QuantityHigh * reward.BonusMultiplier / 100, npc.MaxDeliveries - npc.UsedDeliveries);
+                AddPotentialReward(reward.SatisfactionSupplyRewardData[1].RewardCurrency, reward.SatisfactionSupplyRewardData[1].QuantityHigh * reward.BonusMultiplier / 100, npc.MaxDeliveries - npc.UsedDeliveries); // todo: don't add at low level?..
             }
 
             if (npc.FishData == null || npc.FishData.FishItemId != npc.TurnInItems[2])
@@ -287,7 +288,7 @@ public unsafe class MainWindow : Window, IDisposable
                 npc.AchievementStart = npc.AchievementMax = 0;
 
         var inst = SatisfactionSupplyManager.Instance();
-        var supplySheet = Service.LuminaSheet<SatisfactionSupply>()!;
+        var supplySheet = Service.LuminaSheetSubrow<SatisfactionSupply>()!;
         var calcBonus = Calculations.CalculateBonusGuarantee();
         var bonusOverrideRow = inst->BonusGuaranteeRowId != 0xFF ? inst->BonusGuaranteeRowId : calcBonus;
         var bonusOverride = bonusOverrideRow >= 0 ? Service.LuminaRow<SatisfactionBonusGuarantee>((uint)bonusOverrideRow) : null;
@@ -296,12 +297,12 @@ public unsafe class MainWindow : Window, IDisposable
         ImGui.TextUnformatted($"Guarantee row: {inst->BonusGuaranteeRowId}, adj={inst->TimeAdjustmentForBonusGuarantee}, calculated={calcBonus}");
         foreach (var npc in _npcs)
         {
-            var numSubrows = supplySheet.GetRowParser(npc.SupplyIndex)!.RowCount;
-            ImGui.TextUnformatted($"#{npc.Index}: rank={npc.Rank}, supply={npc.SupplyIndex} ({numSubrows} subrows), satisfaction={inst->Satisfaction[npc.Index]}, usedAllowances={npc.UsedDeliveries}");
+            var supplyRows = supplySheet.GetRow(npc.SupplyIndex);
+            ImGui.TextUnformatted($"#{npc.Index}: rank={npc.Rank}, supply={npc.SupplyIndex} ({supplyRows.Count} subrows), satisfaction={inst->Satisfaction[npc.Index]}, usedAllowances={npc.UsedDeliveries}");
             for (int i = 0; i < npc.Requests.Length; ++i)
             {
-                var item = supplySheet.GetRow(npc.SupplyIndex, npc.Requests[i])!.Item;
-                ImGui.TextUnformatted($"- {npc.Requests[i]} '{item.Value?.Name}'{(npc.IsBonusOverride[i] ? " *****" : "")}");
+                var item = supplyRows[(int)npc.Requests[i]].Item;
+                ImGui.TextUnformatted($"- {npc.Requests[i]} '{item.Value.Name}'{(npc.IsBonusOverride[i] ? " *****" : "")}");
             }
             if (npc.CraftData != null)
             {
@@ -311,9 +312,9 @@ public unsafe class MainWindow : Window, IDisposable
             if (npc.FishData != null)
             {
                 if (npc.FishData.IsSpearFish)
-                    ImGui.TextUnformatted($"> spearfish from {npc.FishData.FishSpotId} '{Service.LuminaRow<SpearfishingNotebook>(npc.FishData.FishSpotId)?.PlaceName.Value?.Name}' @ {npc.FishData.Center} near {npc.FishData.ClosestAetheryteId} '{Service.LuminaRow<Aetheryte>(npc.FishData.ClosestAetheryteId)?.PlaceName.Value?.Name}'");
+                    ImGui.TextUnformatted($"> spearfish from {npc.FishData.FishSpotId} '{Service.LuminaRow<SpearfishingNotebook>(npc.FishData.FishSpotId)?.PlaceName.ValueNullable?.Name}' @ {npc.FishData.Center} near {npc.FishData.ClosestAetheryteId} '{Service.LuminaRow<Aetheryte>(npc.FishData.ClosestAetheryteId)?.PlaceName.ValueNullable?.Name}'");
                 else
-                    ImGui.TextUnformatted($"> fish from {npc.FishData.FishSpotId} '{Service.LuminaRow<FishingSpot>(npc.FishData.FishSpotId)?.PlaceName.Value?.Name}' @ {npc.FishData.Center} near {npc.FishData.ClosestAetheryteId} '{Service.LuminaRow<Aetheryte>(npc.FishData.ClosestAetheryteId)?.PlaceName.Value?.Name}'");
+                    ImGui.TextUnformatted($"> fish from {npc.FishData.FishSpotId} '{Service.LuminaRow<FishingSpot>(npc.FishData.FishSpotId)?.PlaceName.ValueNullable?.Name}' @ {npc.FishData.Center} near {npc.FishData.ClosestAetheryteId} '{Service.LuminaRow<Aetheryte>(npc.FishData.ClosestAetheryteId)?.PlaceName.ValueNullable?.Name}'");
             }
         }
         ImGui.TextUnformatted($"Current NPC: {inst->CurrentNpc}, supply={inst->CurrentSupplyRowId}");

@@ -76,7 +76,7 @@ public abstract class AutoCommon(IDalamudPluginInterface dalamud) : AutoTask
         }
     }
 
-    protected static string ItemName(uint itemId) => Service.LuminaRow<Lumina.Excel.GeneratedSheets.Item>(itemId)?.Name ?? itemId.ToString();
+    protected static string ItemName(uint itemId) => Service.LuminaRow<Lumina.Excel.Sheets.Item>(itemId)?.Name.ToString() ?? itemId.ToString();
 
     private bool NavIsReady() => _vnavIsReady.InvokeFunc();
     private float NavBuildProgress() => _vnavBuildProgress.InvokeFunc();
