@@ -9,6 +9,7 @@ using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.Interop;
 using ImGuiNET;
 using Lumina.Excel.Sheets;
+using System.Numerics;
 using System.Runtime.InteropServices;
 
 namespace Satisfy;
@@ -47,16 +48,16 @@ public unsafe class MainWindow : Window, IDisposable
         }
 
         // hardcoded stuff
-        _npcs[0].InitHardcodedData(1784, 75);
-        _npcs[1].InitHardcodedData(1979, 104);
-        _npcs[2].InitHardcodedData(2077, 105);
-        _npcs[3].InitHardcodedData(2193, 75);
-        _npcs[4].InitHardcodedData(2435, 134);
-        _npcs[5].InitHardcodedData(2633, 70, 886);
-        _npcs[6].InitHardcodedData(2845, 70, 886);
-        _npcs[7].InitHardcodedData(3069, 182);
-        _npcs[8].InitHardcodedData(3173, 144);
-        _npcs[9].InitHardcodedData(3361, 167);
+        _npcs[0].InitHardcodedData(1784, 478);
+        _npcs[1].InitHardcodedData(1979, 635);
+        _npcs[2].InitHardcodedData(2077, 613);
+        _npcs[3].InitHardcodedData(2193, 478);
+        _npcs[4].InitHardcodedData(2435, 820);
+        _npcs[5].InitHardcodedData(2633, 886);
+        _npcs[6].InitHardcodedData(2845, 886);
+        _npcs[7].InitHardcodedData(3069, 962);
+        _npcs[8].InitHardcodedData(3173, 816);
+        _npcs[9].InitHardcodedData(3361, 956);
     }
 
     public void Dispose()
@@ -304,17 +305,24 @@ public unsafe class MainWindow : Window, IDisposable
                 var item = supplyRows[(int)npc.Requests[i]].Item;
                 ImGui.TextUnformatted($"- {npc.Requests[i]} '{item.Value.Name}'{(npc.IsBonusOverride[i] ? " *****" : "")}");
             }
+            string locationString(uint territory, Vector3 pos)
+            {
+                var aetheryte = Map.FindClosestAetheryte(territory, pos);
+                var aetheryteRow = Service.LuminaRow<Aetheryte>(aetheryte)!.Value;
+                var aetheryteName = aetheryteRow.AethernetName.RowId != 0 ? aetheryteRow.AethernetName.Value : aetheryteRow.PlaceName.Value;
+                return $"{territory} '{Service.LuminaRow<TerritoryType>(territory)!.Value.Name}' {pos} near {aetheryte} '{aetheryteName.Name}'";
+            }
             if (npc.CraftData != null)
             {
-                ImGui.TextUnformatted($"> buy from {npc.CraftData.VendorInstanceId:X}/{npc.CraftData.VendorShopId} @ {npc.CraftData.VendorLocation}");
-                ImGui.TextUnformatted($"> turnin to {npc.CraftData.TurnInInstanceId:X} @ {npc.CraftData.VendorLocation}");
+                ImGui.TextUnformatted($"> buy from {npc.CraftData.VendorInstanceId:X}/{npc.CraftData.VendorShopId} @ {locationString(npc.TerritoryId, npc.CraftData.VendorLocation)}");
+                ImGui.TextUnformatted($"> turnin to {npc.CraftData.TurnInInstanceId:X} @ {locationString(npc.TerritoryId, npc.CraftData.VendorLocation)}");
             }
             if (npc.FishData != null)
             {
                 if (npc.FishData.IsSpearFish)
-                    ImGui.TextUnformatted($"> spearfish from {npc.FishData.FishSpotId} '{Service.LuminaRow<SpearfishingNotebook>(npc.FishData.FishSpotId)?.PlaceName.ValueNullable?.Name}' @ {npc.FishData.Center} near {npc.FishData.ClosestAetheryteId} '{Service.LuminaRow<Aetheryte>(npc.FishData.ClosestAetheryteId)?.PlaceName.ValueNullable?.Name}'");
+                    ImGui.TextUnformatted($"> spearfish from {npc.FishData.FishSpotId} '{Service.LuminaRow<SpearfishingNotebook>(npc.FishData.FishSpotId)?.PlaceName.ValueNullable?.Name}' @ {locationString(npc.FishData.TerritoryTypeId, npc.FishData.Center)}");
                 else
-                    ImGui.TextUnformatted($"> fish from {npc.FishData.FishSpotId} '{Service.LuminaRow<FishingSpot>(npc.FishData.FishSpotId)?.PlaceName.ValueNullable?.Name}' @ {npc.FishData.Center} near {npc.FishData.ClosestAetheryteId} '{Service.LuminaRow<Aetheryte>(npc.FishData.ClosestAetheryteId)?.PlaceName.ValueNullable?.Name}'");
+                    ImGui.TextUnformatted($"> fish from {npc.FishData.FishSpotId} '{Service.LuminaRow<FishingSpot>(npc.FishData.FishSpotId)?.PlaceName.ValueNullable?.Name}' @ {locationString(npc.FishData.TerritoryTypeId, npc.FishData.Center)}");
             }
         }
         ImGui.TextUnformatted($"Current NPC: {inst->CurrentNpc}, supply={inst->CurrentSupplyRowId}");

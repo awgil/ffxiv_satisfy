@@ -21,7 +21,7 @@ public sealed class AutoCraft(NPCInfo npc, IDalamudPluginInterface dalamud) : Au
             throw new Exception("Craft data is not initialized");
 
         Status = "Teleporting to zone";
-        await TeleportTo(npc.TerritoryId, npc.AetheryteId);
+        await TeleportTo(npc.TerritoryId, npc.CraftData.VendorLocation);
 
         var turnInItemId = npc.TurnInItems[0];
         var remainingCrafts = remainingTurnins - Game.NumItemsInInventory(turnInItemId, 1);

@@ -4,6 +4,7 @@ using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.Event;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
+using FFXIVClientStructs.FFXIV.Client.Network;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
@@ -26,6 +27,18 @@ public static unsafe class Game
         return true;
     }
 
+    public static void TeleportToAethernet(uint currentAetheryte, uint destinationAetheryte)
+    {
+        Span<uint> payload = [4, destinationAetheryte];
+        PacketDispatcher.SendEventCompletePacket(0x50000 | currentAetheryte, 0, 0, payload.GetPointer(0), (byte)payload.Length, null);
+    }
+
+    public static void TeleportToFirmament(uint currentAetheryte)
+    {
+        Span<uint> payload = [9];
+        PacketDispatcher.SendEventCompletePacket(0x50000 | currentAetheryte, 0, 0, payload.GetPointer(0), (byte)payload.Length, null);
+    }
+
     public static GameObject* Player() => GameObjectManager.Instance()->Objects.IndexSorted[0].Value;
 
     public static Vector3 PlayerPosition()
@@ -44,6 +57,14 @@ public static unsafe class Game
 
     public static uint CurrentTerritory() => GameMain.Instance()->CurrentTerritoryTypeId;
 
+    public static (ulong id, Vector3 pos) FindAetheryte(uint id)
+    {
+        foreach (var obj in GameObjectManager.Instance()->Objects.IndexSorted)
+            if (obj.Value != null && obj.Value->ObjectKind == ObjectKind.Aetheryte && obj.Value->BaseId == id)
+                return (obj.Value->GetGameObjectId(), *obj.Value->GetPosition());
+        return (0, default);
+    }
+
     // TODO: collectibility threshold
     public static int NumItemsInInventory(uint itemId, short minCollectibility) => InventoryManager.Instance()->GetInventoryItemCount(itemId, false, false, false, minCollectibility);
 
@@ -59,6 +80,12 @@ public static unsafe class Game
             }
         }
         return null;
+    }
+
+    public static bool IsSelectStringAddonActive()
+    {
+        var addon = RaptureAtkUnitManager.Instance()->GetAddonByName("SelectString");
+        return addon != null && addon->IsVisible && addon->IsReady;
     }
 
     public static bool IsShopOpen(uint shopId = 0)
@@ -198,13 +225,6 @@ public static unsafe class Game
             var data = new AtkEventData();
             addon->ReceiveEvent(AtkEventType.MouseClick, 0, &evt, &data);
         }
-    }
-
-    // TODO: this really needs revision...
-    public static bool IsTurnInSelectInProgress()
-    {
-        var addon = RaptureAtkUnitManager.Instance()->GetAddonByName("SelectString");
-        return addon != null && addon->IsVisible && addon->IsReady;
     }
 
     // TODO: this really needs revision...
