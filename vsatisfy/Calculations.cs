@@ -24,7 +24,7 @@ public unsafe static class Calculations
     {
         var secondsSinceStart = timestamp - 1657008000;
         var weeksSinceStart = secondsSinceStart / 604800;
-        return weeksSinceStart % 10;
+        return weeksSinceStart % Service.LuminaSheet<SatisfactionBonusGuarantee>()!.Count;
     }
 
     public static uint[] CalculateRequestedItems(int npcIndex)
