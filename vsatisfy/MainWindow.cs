@@ -58,6 +58,7 @@ public unsafe class MainWindow : Window, IDisposable
         _npcs[7].InitHardcodedData(3069, 962);
         _npcs[8].InitHardcodedData(3173, 816);
         _npcs[9].InitHardcodedData(3361, 956);
+        _npcs[10].InitHardcodedData(3602, 1190);
     }
 
     public void Dispose()
