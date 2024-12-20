@@ -10,7 +10,7 @@ public sealed class AutoFish(NPCInfo npc, IDalamudPluginInterface dalamud) : Aut
 {
     protected override async Task Execute()
     {
-        var remainingTurnins = npc.MaxDeliveries - npc.UsedDeliveries;
+        var remainingTurnins = npc.RemainingTurnins(2);
         if (remainingTurnins <= 0)
             return; // nothing to do
 

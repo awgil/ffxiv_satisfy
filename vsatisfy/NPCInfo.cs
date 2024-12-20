@@ -1,9 +1,13 @@
-﻿namespace Satisfy;
+﻿using Lumina.Excel.Sheets;
+
+namespace Satisfy;
 
 public record class NPCInfo(int Index, uint TurninId, string Name, int MaxDeliveries, int[] SupplyIndices)
 {
     public readonly int[] SupplyIndices = [.. SupplyIndices];
     public int Rank;
+    public int SatisfactionCur;
+    public int SatisfactionMax;
     public int UsedDeliveries;
     public uint[] Requests = [];
     public bool[] IsBonusOverride = [false, false, false];
@@ -26,5 +30,16 @@ public record class NPCInfo(int Index, uint TurninId, string Name, int MaxDelive
         AchievementId = achievementId;
         TerritoryId = territoryId;
         CraftData = new((uint)SupplyIndices[1], TurninId, TerritoryId);
+    }
+
+    public int RemainingTurnins(int requestIndex)
+    {
+        var res = MaxDeliveries - UsedDeliveries;
+        if (SatisfactionMax > SatisfactionCur)
+        {
+            var reward = Service.LuminaRow<SatisfactionSupplyReward>(Rewards[requestIndex])!.Value.SatisfactionHigh;
+            res = Math.Min(res, (int)Math.Ceiling((SatisfactionMax - SatisfactionCur) / (float)reward));
+        }
+        return res;
     }
 }

@@ -13,7 +13,7 @@ public sealed class AutoCraft(NPCInfo npc, IDalamudPluginInterface dalamud) : Au
 
     protected override async Task Execute()
     {
-        var remainingTurnins = npc.MaxDeliveries - npc.UsedDeliveries;
+        var remainingTurnins = npc.RemainingTurnins(0);
         if (remainingTurnins <= 0)
             return; // nothing to do
 

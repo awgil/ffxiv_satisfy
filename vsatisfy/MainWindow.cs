@@ -119,13 +119,15 @@ public unsafe class MainWindow : Window, IDisposable
         var supplySheet = Service.LuminaSheetSubrow<SatisfactionSupply>()!;
         foreach (var npc in _npcs)
         {
+            var sheetIndex = (byte)(npc.Index + 1);
             npc.Rank = inst->SatisfactionRanks[npc.Index];
+            npc.SatisfactionCur = inst->Satisfaction[npc.Index];
+            npc.SatisfactionMax = Service.LuminaRow<SatisfactionNpc>(sheetIndex)!.Value.SatisfactionNpcParams[npc.Rank].SatisfactionRequired;
             npc.UsedDeliveries = inst->UsedAllowances[npc.Index];
             npc.Requests = npc.Rank > 0 ? Calculations.CalculateRequestedItems(npc.SupplyIndex, inst->SupplySeed) : [];
             Array.Fill(npc.IsBonusOverride, false);
             if (npc.Rank == 5 && bonusOverride != null)
             {
-                var sheetIndex = (byte)(npc.Index + 1);
                 npc.IsBonusOverride[0] = bonusOverride.Value.BonusDoH.Contains(sheetIndex);
                 npc.IsBonusOverride[1] = bonusOverride.Value.BonusDoL.Contains(sheetIndex);
                 npc.IsBonusOverride[2] = bonusOverride.Value.BonusFisher.Contains(sheetIndex);
@@ -300,7 +302,7 @@ public unsafe class MainWindow : Window, IDisposable
         foreach (var npc in _npcs)
         {
             var supplyRows = supplySheet.GetRow(npc.SupplyIndex);
-            ImGui.TextUnformatted($"#{npc.Index}: rank={npc.Rank}, supply={npc.SupplyIndex} ({supplyRows.Count} subrows), satisfaction={inst->Satisfaction[npc.Index]}, usedAllowances={npc.UsedDeliveries}");
+            ImGui.TextUnformatted($"#{npc.Index}: rank={npc.Rank}, supply={npc.SupplyIndex} ({supplyRows.Count} subrows), satisfaction={npc.SatisfactionCur}/{npc.SatisfactionMax}, usedAllowances={npc.UsedDeliveries}");
             for (int i = 0; i < npc.Requests.Length; ++i)
             {
                 var item = supplyRows[(int)npc.Requests[i]].Item;
