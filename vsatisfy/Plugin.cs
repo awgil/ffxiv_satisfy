@@ -1,6 +1,7 @@
-﻿using Dalamud.Common;
+﻿    using Dalamud.Common;
 using Dalamud.Game;
 using Dalamud.Interface.Windowing;
+using Dalamud.IoC;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using System.Reflection;
@@ -9,7 +10,8 @@ namespace Satisfy;
 
 public sealed class Plugin : IDalamudPlugin
 {
-    private WindowSystem WindowSystem = new("vsatisfy");
+    [PluginService] internal static IClientState ClientState { get; private set; } = null!;
+    private WindowSystem WindowSystem = new("vsatisfy");    
     private MainWindow _wndMain;
     private ICommandManager _cmd;
 
