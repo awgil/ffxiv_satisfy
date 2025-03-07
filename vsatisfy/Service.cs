@@ -6,6 +6,7 @@ namespace Satisfy;
 
 public class Service
 {
+    [PluginService] internal static IClientState ClientState { get; private set; } = null!;
     [PluginService] public static IPluginLog Log { get; private set; } = null!;
     [PluginService] public static IDataManager DataManager { get; private set; } = null!;
     [PluginService] public static IGameInteropProvider Hook { get; private set; } = null!;
