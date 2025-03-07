@@ -62,7 +62,7 @@ public sealed class CraftTurnin
     }
 
     // TODO: job selection
-    // rather than job selection im using current job instead, setting default as CUL 
+    // rather than job selection im using current job instead, setting default as CRP
     public static uint GetRecipeId(uint craftedItemId)
     {
         var localplayer = Service.ClientState.LocalPlayer;
