@@ -19,7 +19,7 @@ public sealed class CraftTurnin
     public uint VendorShopId;
     public ulong TurnInInstanceId;
     public Vector3 TurnInLocation;
-
+            
     public CraftTurnin(uint supplyId, uint turnInENPCId, uint territoryId)
     {
         // note: we assume that first supply subrow for rank-one supply is always a craft (if this changes, we can check Slot column)
@@ -88,10 +88,10 @@ public sealed class CraftTurnin
                 case 15:
                     return Service.LuminaRow<RecipeLookup>(craftedItemId)?.CUL.RowId ?? 0;
                 default:
-                    return Service.LuminaRow<RecipeLookup>(craftedItemId)?.CUL.RowId ?? 0;
+                    return Service.LuminaRow<RecipeLookup>(craftedItemId)?.CRP.RowId ?? 0;
             }
         }
-        return 0;
+        return Service.LuminaRow<RecipeLookup>(craftedItemId)?.CRP.RowId ?? 0;
     }
 
     public static (uint id, int count) GetCraftIngredient(uint craftedItemId)
@@ -128,7 +128,7 @@ public sealed class CraftTurnin
                     recipe = Service.LuminaRow<RecipeLookup>(craftedItemId)?.CUL.Value;
                     break;
                 default:
-                    recipe = Service.LuminaRow<RecipeLookup>(craftedItemId)?.CUL.Value;
+                    recipe = Service.LuminaRow<RecipeLookup>(craftedItemId)?.CRP.Value;
                     break;
             }
             return recipe != null ? (recipe.Value.Ingredient[0].RowId, recipe.Value.AmountIngredient[0]) : default;
