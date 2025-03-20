@@ -5,6 +5,7 @@ namespace Satisfy;
 public record class NPCInfo(int Index, uint TurninId, string Name, int MaxDeliveries, int[] SupplyIndices)
 {
     public readonly int[] SupplyIndices = [.. SupplyIndices];
+    public bool Unlocked;
     public int Rank;
     public int SatisfactionCur;
     public int SatisfactionMax;

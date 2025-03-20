@@ -77,7 +77,7 @@ public unsafe class MainWindow : Window, IDisposable
 
         if (isLoaded)
         {
-            IsOpen = _config.AutoShowIfIncomplete && SatisfactionSupplyManager.Instance()->GetRemainingAllowances() > 0;
+            IsOpen = _config.AutoShowIfIncomplete && SatisfactionSupplyManager.Instance()->GetRemainingAllowances() > 0 && _npcs.Any(n => n.Unlocked);
         }
         else
         {
@@ -120,6 +120,8 @@ public unsafe class MainWindow : Window, IDisposable
         foreach (var npc in _npcs)
         {
             var sheetIndex = (byte)(npc.Index + 1);
+            if (Service.LuminaRow<SatisfactionNpc>((uint)npc.Index) is { QuestRequired.RowId: var questId })
+                npc.Unlocked = QuestManager.IsQuestComplete(questId);
             npc.Rank = inst->SatisfactionRanks[npc.Index];
             npc.SatisfactionCur = inst->Satisfaction[npc.Index];
             npc.SatisfactionMax = Service.LuminaRow<SatisfactionNpc>(sheetIndex)!.Value.SatisfactionNpcParams[npc.Rank].SatisfactionRequired;
