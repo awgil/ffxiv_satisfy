@@ -4,5 +4,6 @@
   "Punchline": "Automatic satisfaction.",
   "Description": "Make custom deliveries less annoying by automating the process.",
   "InternalName": "vsatisfy",
-  "ApplicableVersion": "any"
+  "ApplicableVersion": "any",
+  "Tags": ["Custom Deliveries", "Automation", "Satisfaction"]
 }

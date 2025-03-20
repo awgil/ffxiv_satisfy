@@ -1,4 +1,5 @@
-﻿using ImGuiNET;
+﻿using Dalamud.Interface.Utility.Raii;
+using ImGuiNET;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -13,6 +14,18 @@ public sealed class Config
     public bool AutoFetchAchievements = true;
     public bool AutoShowIfIncomplete = true;
     public bool ShowDebugUI = false;
+    public JobChoice CraftJobType = JobChoice.Specific;
+    public uint SelectedCraftJob = 8;
+
+    private readonly (uint rowId, string name)[] _craftJobs = Service.LuminaSheet<Lumina.Excel.Sheets.ClassJob>()!.Where(c => c.ClassJobCategory.RowId == 33).Select(c => (c.RowId, c.Name.ToString())).ToArray();
+
+    public enum JobChoice
+    {
+        Specific,
+        Current,
+        LowestXP,
+        HighestXP,
+    }
 
     public event Action? Modified;
 
@@ -26,6 +39,23 @@ public sealed class Config
             NotifyModified();
         if (ImGui.Checkbox("Show debug UI", ref ShowDebugUI))
             NotifyModified();
+        if (ImGuiUtils.Enum("Job choice", ref CraftJobType))
+            NotifyModified();
+        if (CraftJobType == JobChoice.Specific)
+        {
+            using var combo = ImRaii.Combo("Specific job", _craftJobs.Single(c => c.rowId == SelectedCraftJob).name);
+            if (combo)
+            {
+                for (var i = 0; i < _craftJobs.Length; ++i)
+                {
+                    if (ImGui.Selectable(_craftJobs[i].name, SelectedCraftJob == _craftJobs[i].rowId))
+                    {
+                        SelectedCraftJob = _craftJobs[i].rowId;
+                        NotifyModified();
+                    }
+                }
+            }
+        }
     }
 
     public void Load(FileInfo file)

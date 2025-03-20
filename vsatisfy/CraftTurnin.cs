@@ -1,4 +1,5 @@
 ﻿using FFXIVClientStructs.FFXIV.Client.Game.Event;
+using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using Lumina.Data.Files;
 using Lumina.Data.Parsing.Layer;
 using Lumina.Excel.Sheets;
@@ -57,13 +58,27 @@ public sealed class CraftTurnin
         }
     }
 
-    // TODO: job selection
-    public static uint GetRecipeId(uint craftedItemId) => Service.LuminaRow<RecipeLookup>(craftedItemId)?.CRP.RowId ?? 0;
+    public static Recipe? GetRecipe(uint craftedItemId)
+    {
+        return GetCrafter() switch
+        {
+            8 => Service.LuminaRow<RecipeLookup>(craftedItemId)?.CRP.Value,
+            9 => Service.LuminaRow<RecipeLookup>(craftedItemId)?.BSM.Value,
+            10 => Service.LuminaRow<RecipeLookup>(craftedItemId)?.ARM.Value,
+            11 => Service.LuminaRow<RecipeLookup>(craftedItemId)?.GSM.Value,
+            12 => Service.LuminaRow<RecipeLookup>(craftedItemId)?.LTW.Value,
+            13 => Service.LuminaRow<RecipeLookup>(craftedItemId)?.WVR.Value,
+            14 => Service.LuminaRow<RecipeLookup>(craftedItemId)?.ALC.Value,
+            15 => Service.LuminaRow<RecipeLookup>(craftedItemId)?.CUL.Value,
+            _ => Service.LuminaRow<RecipeLookup>(craftedItemId)?.CRP.Value,
+        };
+    }
 
     public static (uint id, int count) GetCraftIngredient(uint craftedItemId)
     {
-        var recipe = Service.LuminaRow<RecipeLookup>(craftedItemId)?.CRP.Value;
-        return recipe != null ? (recipe.Value.Ingredient[0].RowId, recipe.Value.AmountIngredient[0]) : default;
+        if (GetRecipe(craftedItemId) is { } recipe)
+            return (recipe.Ingredient[0].RowId, recipe.AmountIngredient[0]);
+        return default;
     }
 
     private static (uint shopId, int itemIndex) FindVendorItem(uint enpcId, uint itemId)
@@ -91,5 +106,17 @@ public sealed class CraftTurnin
             }
         }
         return (0, -1);
+    }
+
+    private static unsafe uint GetCrafter()
+    {
+        return Plugin.Config.CraftJobType switch
+        {
+            Config.JobChoice.Specific => Plugin.Config.SelectedCraftJob,
+            Config.JobChoice.Current => Service.LuminaRow<ClassJob>(Service.ClientState.LocalPlayer?.ClassJob.RowId ?? 0)?.RowId ?? Plugin.Config.SelectedCraftJob,
+            Config.JobChoice.LowestXP => Service.LuminaSheet<ClassJob>()?.Where(c => c.ClassJobCategory.RowId == 33).OrderBy(c => PlayerState.Instance()->ClassJobLevels[c.ExpArrayIndex]).First().RowId ?? Plugin.Config.SelectedCraftJob,
+            Config.JobChoice.HighestXP => Service.LuminaSheet<ClassJob>()?.Where(c => c.ClassJobCategory.RowId == 33).OrderByDescending(c => PlayerState.Instance()->ClassJobLevels[c.ExpArrayIndex]).First().RowId ?? Plugin.Config.SelectedCraftJob,
+            _ => Plugin.Config.SelectedCraftJob,
+        };
     }
 }

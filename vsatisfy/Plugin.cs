@@ -9,6 +9,7 @@ namespace Satisfy;
 
 public sealed class Plugin : IDalamudPlugin
 {
+    public static Config Config { get; private set; } = null!;
     private WindowSystem WindowSystem = new("vsatisfy");
     private MainWindow _wndMain;
     private ICommandManager _cmd;
@@ -29,17 +30,18 @@ public sealed class Plugin : IDalamudPlugin
 
         dalamud.Create<Service>();
 
-        var config = new Config();
-        config.Load(dalamud.ConfigFile);
-        config.Modified += () => config.Save(dalamud.ConfigFile);
+        Config = new Config();
+        Config.Load(dalamud.ConfigFile);
+        Config.Modified += () => Config.Save(dalamud.ConfigFile);
 
-        _wndMain = new(dalamud, config);
+        _wndMain = new(dalamud);
         WindowSystem.AddWindow(_wndMain);
 
         _cmd = commandManager;
-        commandManager.AddHandler("/vsatisfy", new((_, _) => _wndMain.IsOpen ^= true));
+        commandManager.AddHandler("/vsatisfy", new((_, _) => _wndMain.IsOpen ^= true) { HelpMessage = "Toggle main window" });
 
         dalamud.UiBuilder.Draw += WindowSystem.Draw;
+        dalamud.UiBuilder.OpenMainUi += () => _wndMain.IsOpen = true;
         dalamud.UiBuilder.OpenConfigUi += () => _wndMain.IsOpen = true;
     }
 

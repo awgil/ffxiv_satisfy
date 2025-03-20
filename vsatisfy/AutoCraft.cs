@@ -66,22 +66,24 @@ public sealed class AutoCraft(NPCInfo npc, IDalamudPluginInterface dalamud) : Au
         await NextFrame();
     }
 
-    // TODO: job selection...
     private async Task CraftItem(uint itemId, int count, int finalCount)
     {
         using var scope = BeginScope("Craft");
-        var recipe = CraftTurnin.GetRecipeId(itemId);
-        ErrorIf(recipe == 0, $"Failed to find recipe for {itemId}");
+        if (CraftTurnin.GetRecipe(itemId) is { RowId: var rowId } && rowId != 0)
+        {
 
-        ArtisanCraft((ushort)recipe, count);
-        await WaitWhile(() => !ArtisanInProgress(), "WaitStart");
-        await WaitWhile(ArtisanInProgress, "WaitProgress");
-        await WaitWhile(() => !Service.Conditions[ConditionFlag.PreparingToCraft], "WaitFinish");
-        ErrorIf(Game.NumItemsInInventory(itemId, 1) < finalCount, $"Failed to craft {count}x {ItemName(itemId)}");
-        await NextFrame();
+            ArtisanCraft((ushort)rowId, count);
+            await WaitWhile(() => !ArtisanInProgress(), "WaitStart");
+            await WaitWhile(ArtisanInProgress, "WaitProgress");
+            await WaitWhile(() => !Service.Conditions[ConditionFlag.PreparingToCraft], "WaitFinish");
+            ErrorIf(Game.NumItemsInInventory(itemId, 1) < finalCount, $"Failed to craft {count}x {ItemName(itemId)}");
+            await NextFrame();
 
-        Game.ExitCrafting();
-        await WaitWhile(() => Service.Conditions[ConditionFlag.Crafting], "WaitCraftClose");
+            Game.ExitCrafting();
+            await WaitWhile(() => Service.Conditions[ConditionFlag.Crafting], "WaitCraftClose");
+        }
+        else
+            Error($"Failed to find recipe for {itemId}");
     }
 
     private void ArtisanCraft(ushort recipe, int count) => _artisanCraft.InvokeAction(recipe, count);

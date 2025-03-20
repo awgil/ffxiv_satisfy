@@ -12,6 +12,7 @@ public class Service
     [PluginService] public static ISigScanner SigScanner { get; private set; } = null!;
     [PluginService] public static ICondition Conditions { get; private set; } = null!;
     [PluginService] public static IFramework Framework { get; private set; } = null!;
+    [PluginService] public static IClientState ClientState { get; private set; } = null!;
 
     public static Lumina.GameData LuminaGameData => DataManager.GameData;
     public static Lumina.Excel.ExcelSheet<T>? LuminaSheet<T>() where T : struct, Lumina.Excel.IExcelRow<T> => LuminaGameData?.GetExcelSheet<T>(Lumina.Data.Language.English);

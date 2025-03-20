@@ -17,17 +17,15 @@ namespace Satisfy;
 public unsafe class MainWindow : Window, IDisposable
 {
     private readonly IDalamudPluginInterface _dalamud;
-    private readonly Config _config;
     private readonly Achievements _achi = new();
     private readonly Automation _auto = new();
     private readonly List<NPCInfo> _npcs = [];
     private readonly List<(uint Currency, int Amount, int Count)> _rewards = [];
     private bool _wasLoaded;
 
-    public MainWindow(IDalamudPluginInterface dalamud, Config config) : base("Satisfier")
+    public MainWindow(IDalamudPluginInterface dalamud) : base("Satisfier")
     {
         _dalamud = dalamud;
-        _config = config;
         _achi.AchievementProgress += OnAchievementProgress;
 
         TitleBarButtons.Add(new() { Icon = FontAwesomeIcon.Cog, IconOffset = new(1), Click = _ => ImGui.OpenPopup("###config") });
@@ -77,7 +75,7 @@ public unsafe class MainWindow : Window, IDisposable
 
         if (isLoaded)
         {
-            IsOpen = _config.AutoShowIfIncomplete && SatisfactionSupplyManager.Instance()->GetRemainingAllowances() > 0 && _npcs.Any(n => n.Unlocked);
+            IsOpen = Plugin.Config.AutoShowIfIncomplete && SatisfactionSupplyManager.Instance()->GetRemainingAllowances() > 0 && _npcs.Any(n => n.Unlocked);
         }
         else
         {
@@ -98,7 +96,7 @@ public unsafe class MainWindow : Window, IDisposable
             DrawCurrenciesTable();
         }
 
-        if (_config.ShowDebugUI && ImGui.CollapsingHeader("Debug data"))
+        if (Plugin.Config.ShowDebugUI && ImGui.CollapsingHeader("Debug data"))
             DrawDebug();
     }
 
@@ -106,7 +104,7 @@ public unsafe class MainWindow : Window, IDisposable
     {
         using var popup = ImRaii.Popup("###config");
         if (popup)
-            _config.Draw();
+            Plugin.Config.Draw();
     }
 
     private void UpdateData()
@@ -166,7 +164,7 @@ public unsafe class MainWindow : Window, IDisposable
                 npc.FishData = new(npc.TurnInItems[2]);
             }
 
-            if (npc.AchievementMax == 0 && npc.AchievementId != 0 && _config.AutoFetchAchievements)
+            if (npc.AchievementMax == 0 && npc.AchievementId != 0 && Plugin.Config.AutoFetchAchievements)
             {
                 _achi.Request(npc.AchievementId);
             }
@@ -246,7 +244,7 @@ public unsafe class MainWindow : Window, IDisposable
             ImGui.TableNextColumn();
             if (npc.AchievementMax > 0)
                 ImGui.ProgressBar((float)npc.AchievementCur / npc.AchievementMax, new(120, 0), $"{npc.AchievementCur} / {npc.AchievementMax}");
-            else if (npc.AchievementId != 0 && !_config.AutoFetchAchievements && ImGui.Button("Fetch...", new(120, 0)))
+            else if (npc.AchievementId != 0 && !Plugin.Config.AutoFetchAchievements && ImGui.Button("Fetch...", new(120, 0)))
                 _achi.Request(npc.AchievementId);
 
             ImGui.TableNextColumn();
