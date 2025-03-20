@@ -14,18 +14,27 @@ public abstract class AutoCommon(IDalamudPluginInterface dalamud) : AutoTask
     private readonly ICallGateSubscriber<Vector3, bool, bool> _vnavPathfindAndMoveTo = dalamud.GetIpcSubscriber<Vector3, bool, bool>("vnavmesh.SimpleMove.PathfindAndMoveTo");
     private readonly ICallGateSubscriber<object> _vnavStop = dalamud.GetIpcSubscriber<object>("vnavmesh.Path.Stop");
 
-    protected async Task MoveTo(Vector3 dest, float tolerance, bool fly = false)
+    protected async Task MoveTo(Vector3 dest, float tolerance, bool mount = false, bool fly = false, bool dismount = false)
     {
         using var scope = BeginScope("MoveTo");
         if (Game.PlayerInRange(dest, tolerance))
             return; // already in range
 
+        await TeleportTo(Game.CurrentTerritory(), dest);
+
+        if (mount || fly)
+            await Mount();
+
         // ensure navmesh is ready
+        Status = "Waiting for Navmesh";
         await WaitWhile(() => NavBuildProgress() >= 0, "BuildMesh");
         ErrorIf(!NavIsReady(), "Failed to build navmesh for the zone");
         ErrorIf(!NavPathfindAndMoveTo(dest, fly), "Failed to start pathfinding to destination");
+        Status = $"Moving to {dest}";
         using var stop = new OnDispose(NavStop);
-        await WaitWhile(() => !Game.PlayerInRange(dest, tolerance), "Navigate");
+        await WaitWhile(() => !(Game.PlayerInRange(dest, tolerance)), "Navigate");
+        if (dismount)
+            await Dismount();
     }
 
     protected async Task TeleportTo(uint territoryId, Vector3 destination)
@@ -68,6 +77,34 @@ public abstract class AutoCommon(IDalamudPluginInterface dalamud) : AutoTask
         }
 
         ErrorIf(Game.CurrentTerritory() != territoryId, "Failed to teleport to expected zone");
+    }
+
+    protected async Task Mount()
+    {
+        using var scope = BeginScope("Mount");
+        if (Service.Conditions[ConditionFlag.Mounted]) return;
+        Status = "Mounting";
+        ErrorIf(!Game.UseAction(FFXIVClientStructs.FFXIV.Client.Game.ActionType.GeneralAction, 24), "Failed to call mount");
+        await WaitWhile(() => !Service.Conditions[ConditionFlag.Mounted], "Mounting");
+        ErrorIf(!Service.Conditions[ConditionFlag.Mounted], "Failed to mount");
+    }
+
+    private async Task Dismount()
+    {
+        using var scope = BeginScope("Dismount");
+        if (!Service.Conditions[ConditionFlag.Mounted]) return;
+
+        if (Service.Conditions[ConditionFlag.InFlight])
+        {
+            Game.UseAction(FFXIVClientStructs.FFXIV.Client.Game.ActionType.GeneralAction, 23);
+            await WaitWhile(() => Service.Conditions[ConditionFlag.InFlight], "WaitingToLand");
+        }
+        if (Service.Conditions[ConditionFlag.Mounted] && !Service.Conditions[ConditionFlag.InFlight])
+        {
+            Game.UseAction(FFXIVClientStructs.FFXIV.Client.Game.ActionType.GeneralAction, 23);
+            await WaitWhile(() => Service.Conditions[ConditionFlag.Mounted], "WaitingToDismount");
+        }
+        ErrorIf(Service.Conditions[ConditionFlag.Mounted], "Failed to dismount");
     }
 
     protected async Task TurnIn(int npcIndex, ulong npcInstanceId, uint itemId, int slot, int count)

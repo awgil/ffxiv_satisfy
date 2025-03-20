@@ -29,7 +29,7 @@ public sealed class AutoFish(NPCInfo npc, IDalamudPluginInterface dalamud) : Aut
                 Status = $"Spearfishing at {Service.LuminaRow<SpearfishingNotebook>(npc.FishData.FishSpotId)?.PlaceName.ValueNullable?.Name}";
             else
                 Status = $"Fishing at {Service.LuminaRow<FishingSpot>(npc.FishData.FishSpotId)?.PlaceName.ValueNullable?.Name}";
-            await MoveTo(npc.FishData.Center, 10, true);
+            await MoveTo(npc.FishData.Center, 10, true, true, true);
         }
         else // TODO: full auto...
         {

@@ -55,6 +55,8 @@ public static unsafe class Game
 
     public static bool PlayerIsBusy() => Service.Conditions[ConditionFlag.BetweenAreas] || Service.Conditions[ConditionFlag.Casting] || ActionManager.Instance()->AnimationLock > 0;
 
+    public static bool UseAction(ActionType type, uint actionId) => ActionManager.Instance()->UseAction(type, actionId);
+
     public static uint CurrentTerritory() => GameMain.Instance()->CurrentTerritoryTypeId;
 
     public static (ulong id, Vector3 pos) FindAetheryte(uint id)
