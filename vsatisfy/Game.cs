@@ -163,7 +163,7 @@ public static unsafe class Game
             return false;
         }
 
-        if (eh->Value->Info.EventId.ContentId != EventHandlerType.Shop)
+        if (eh->Value->Info.EventId.ContentId != EventHandlerContent.Shop)
         {
             Service.Log.Error($"{shopId:X} is not a shop");
             return false;
@@ -194,7 +194,7 @@ public static unsafe class Game
             return false;
         }
 
-        if (eh->Value->Info.EventId.ContentId != EventHandlerType.Shop)
+        if (eh->Value->Info.EventId.ContentId != EventHandlerContent.Shop)
         {
             Service.Log.Error($"{shopId:X} is not a shop");
             return false;
@@ -261,13 +261,13 @@ public static unsafe class Game
     public static bool IsTurnInRequestInProgress(uint itemId)
     {
         var ui = UIState.Instance();
-        var agent = AgentRequest.Instance();
+        var agent = AgentNpcTrade.Instance();
         return agent->IsAgentActive() && ui->NpcTrade.Requests.Count == 1 && ui->NpcTrade.Requests.Items[0].ItemId == itemId;
     }
 
     public static void TurnInRequestCommit()
     {
-        var agent = AgentRequest.Instance();
+        var agent = AgentNpcTrade.Instance();
         if (!agent->IsAgentActive())
         {
             Service.Log.Error("Agent not active...");

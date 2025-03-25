@@ -338,7 +338,7 @@ public unsafe class MainWindow : Window, IDisposable
         var addonSat = Game.GetFocusedAddonByID(agentSat->AddonId);
         ImGui.TextUnformatted($"AgentSat: {agentSat->IsAgentActive()}/{(addonSat != null ? addonSat->IsVisible : null)}, id={agentSat->NpcInfo.Id}");
 
-        var agentReq = AgentRequest.Instance();
+        var agentReq = AgentNpcTrade.Instance();
         ImGui.TextUnformatted($"NPCTrade: {ui->NpcTrade.Requests.Count}");
         for (int i = 0; i < ui->NpcTrade.Requests.Count; ++i)
             ImGui.TextUnformatted($"[{i}] = {ui->NpcTrade.Requests.Items[i].ItemId} '{ui->NpcTrade.Requests.Items[i].ItemName}'");

@@ -89,7 +89,7 @@ public sealed class CraftTurnin
 
         foreach (var handler in enpcBase.Value.ENpcData)
         {
-            if ((handler.RowId >> 16) != (uint)EventHandlerType.Shop)
+            if ((handler.RowId >> 16) != (uint)EventHandlerContent.Shop)
                 continue;
 
             var items = Service.LuminaSubrows<GilShopItem>(handler.RowId);
