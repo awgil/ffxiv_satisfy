@@ -114,7 +114,7 @@ public sealed class CraftTurnin
         {
             Config.JobChoice.Specific => Plugin.Config.SelectedCraftJob,
             Config.JobChoice.Current => GetCurrentCrafterJob(),
-            Config.JobChoice.LowestXP => ((ClassJob?)Service.LuminaSheet<ClassJob>()?
+            Config.JobChoice.LowestXP => (Service.LuminaSheet<ClassJob>()?
                 .Where(c => c.ClassJobCategory.RowId == 33 &&
                     PlayerState.Instance() != null &&
                     c.ExpArrayIndex >= 0 &&
@@ -123,7 +123,7 @@ public sealed class CraftTurnin
                 .OrderBy(c =>
                     PlayerState.Instance()->ClassJobLevels[c.ExpArrayIndex])
                 .FirstOrDefault())?.RowId ?? Plugin.Config.SelectedCraftJob,
-            Config.JobChoice.HighestXP => ((ClassJob?)Service.LuminaSheet<ClassJob>()?
+            Config.JobChoice.HighestXP => (Service.LuminaSheet<ClassJob>()?
                 .Where(c => c.ClassJobCategory.RowId == 33 &&
                     PlayerState.Instance() != null &&
                     c.ExpArrayIndex >= 0 &&
@@ -139,13 +139,11 @@ public sealed class CraftTurnin
     private static uint GetCurrentCrafterJob()
     {
         uint jobId = Plugin.Config.SelectedCraftJob;
-        Service.Framework.RunOnFrameworkThread(() =>
+        _ = Service.Framework.RunOnFrameworkThread(() =>
         {
-            if (Service.ClientState.LocalPlayer != null)
-            {
-                jobId = Service.LuminaRow<ClassJob>(Service.ClientState.LocalPlayer.ClassJob.RowId)?.RowId ?? Plugin.Config.SelectedCraftJob;
-            }
-        });
+            if (Service.ClientState.LocalPlayer is { } player)
+                jobId = Service.LuminaRow<ClassJob>(player.ClassJob.RowId)?.RowId ?? Plugin.Config.SelectedCraftJob;
+        }).Wait(5000);
         return jobId;
     }
 }
