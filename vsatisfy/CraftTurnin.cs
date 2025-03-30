@@ -115,18 +115,22 @@ public sealed class CraftTurnin
             Config.JobChoice.Specific => Plugin.Config.SelectedCraftJob,
             Config.JobChoice.Current => GetCurrentCrafterJob(),
             Config.JobChoice.LowestXP => ((ClassJob?)Service.LuminaSheet<ClassJob>()?
-                .Where(c => c.ClassJobCategory.RowId == 33)
+                .Where(c => c.ClassJobCategory.RowId == 33 &&
+                    PlayerState.Instance() != null &&
+                    c.ExpArrayIndex >= 0 &&
+                    c.ExpArrayIndex < PlayerState.Instance()->ClassJobLevels.Length &&
+                    PlayerState.Instance()->ClassJobLevels[c.ExpArrayIndex] >= 1)
                 .OrderBy(c =>
-                    (PlayerState.Instance() != null && c.ExpArrayIndex >= 0 && c.ExpArrayIndex < PlayerState.Instance()->ClassJobLevels.Length)
-                        ? PlayerState.Instance()->ClassJobLevels[c.ExpArrayIndex]
-                        : short.MaxValue)
+                    PlayerState.Instance()->ClassJobLevels[c.ExpArrayIndex])
                 .FirstOrDefault())?.RowId ?? Plugin.Config.SelectedCraftJob,
             Config.JobChoice.HighestXP => ((ClassJob?)Service.LuminaSheet<ClassJob>()?
-                .Where(c => c.ClassJobCategory.RowId == 33)
+                .Where(c => c.ClassJobCategory.RowId == 33 &&
+                    PlayerState.Instance() != null &&
+                    c.ExpArrayIndex >= 0 &&
+                    c.ExpArrayIndex < PlayerState.Instance()->ClassJobLevels.Length &&
+                    PlayerState.Instance()->ClassJobLevels[c.ExpArrayIndex] >= 1)
                 .OrderByDescending(c =>
-                    (PlayerState.Instance() != null && c.ExpArrayIndex >= 0 && c.ExpArrayIndex < PlayerState.Instance()->ClassJobLevels.Length)
-                        ? PlayerState.Instance()->ClassJobLevels[c.ExpArrayIndex]
-                        : short.MinValue)
+                    PlayerState.Instance()->ClassJobLevels[c.ExpArrayIndex])
                 .FirstOrDefault())?.RowId ?? Plugin.Config.SelectedCraftJob,
             _ => Plugin.Config.SelectedCraftJob,
         };
@@ -144,5 +148,4 @@ public sealed class CraftTurnin
         });
         return jobId;
     }
-
 }
