@@ -23,7 +23,7 @@ public unsafe class Achievements : IDisposable
     public void Request(uint id)
     {
         var ui = UIState.Instance();
-        if (ui->PlayerState.IsLoaded != 0 && ui->Achievement.ProgressRequestState != Achievement.AchievementState.Requested)
+        if (ui->PlayerState.IsLoaded && ui->Achievement.ProgressRequestState != Achievement.AchievementState.Requested)
             ui->Achievement.RequestAchievementProgress(id);
     }
 

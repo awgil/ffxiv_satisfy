@@ -7,7 +7,7 @@ using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.Interop;
-using ImGuiNET;
+using Dalamud.Bindings.ImGui;
 using Lumina.Excel.Sheets;
 using System.Numerics;
 using System.Runtime.InteropServices;
@@ -69,7 +69,7 @@ public unsafe class MainWindow : Window, IDisposable
 
     public override void PreOpenCheck()
     {
-        var isLoaded = UIState.Instance()->PlayerState.IsLoaded != 0;
+        var isLoaded = UIState.Instance()->PlayerState.IsLoaded;
         if (_wasLoaded == isLoaded)
             return;
 
