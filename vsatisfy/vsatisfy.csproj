@@ -1,80 +1,31 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <Authors></Authors>
-    <Company></Company>
-    <Version>0.0.0.0</Version>
-    <Description>Automatic satisfaction.</Description>
-    <Copyright></Copyright>
-    <PackageProjectUrl>https://github.com/awgil/ffxiv_satisfy</PackageProjectUrl>
-  </PropertyGroup>
+<Project Sdk="Dalamud.NET.Sdk/13.0.0">
+	<PropertyGroup>
+		<Version>0.0.0.0</Version>
+		<LangVersion>preview</LangVersion>
+		<GenerateErrorForMissingTargetingPacks>false</GenerateErrorForMissingTargetingPacks>
+		<LocalCS>false</LocalCS>
+	</PropertyGroup>
 
-  <PropertyGroup>
-    <TargetFramework>net9.0-windows</TargetFramework>
-    <Platforms>x64</Platforms>
-    <Nullable>enable</Nullable>
-    <LangVersion>preview</LangVersion>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <ProduceReferenceAssembly>false</ProduceReferenceAssembly>
-    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
-    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
-  </PropertyGroup>
+	<PropertyGroup Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))'">
+		<DalamudLibPath>$(DALAMUD_HOME)/</DalamudLibPath>
+	</PropertyGroup>
 
-  <ItemGroup>
-    <Using Include="System" />
-    <Using Include="System.Collections" />
-    <Using Include="System.Collections.Generic" />
-    <Using Include="System.Linq" />
-  </ItemGroup>
+	<PropertyGroup Condition="'$(LocalCS)'=='true'">
+		<DefineConstants>LOCAL_CS</DefineConstants>
+		<Use_Dalamud_FFXIVClientStructs>false</Use_Dalamud_FFXIVClientStructs>
+	</PropertyGroup>
 
-  <PropertyGroup>
-    <DalamudLibPath>$(appdata)\XIVLauncher\addon\Hooks\dev\</DalamudLibPath>
-    <RootNamespace>Satisfy</RootNamespace>
-  </PropertyGroup>
-  
-   <PropertyGroup Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))'">
-    <DalamudLibPath>$(DALAMUD_HOME)/</DalamudLibPath>
-  </PropertyGroup>
+	<ItemGroup Condition="'$(LocalCS)'=='true'">
+		<ProjectReference Include="..\..\FFXIVClientStructs\FFXIVClientStructs\FFXIVClientStructs.csproj" Private="true" />
+		<ProjectReference Include="..\..\FFXIVClientStructs\InteropGenerator.Runtime\InteropGenerator.Runtime.csproj" Private="true" />
+		<ProjectReference Include="..\..\FFXIVClientStructs\InteropGenerator\InteropGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+	</ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="DalamudPackager" Version="13.0.0" />
-    <!--<ProjectReference Include="..\FFXIVClientStructs\FFXIVClientStructs\FFXIVClientStructs.csproj" />-->
-    <Reference Include="FFXIVClientStructs">
-      <HintPath>$(DalamudLibPath)FFXIVClientStructs.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="Dalamud">
-      <HintPath>$(DalamudLibPath)Dalamud.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="Dalamud.Common">
-      <HintPath>$(DalamudLibPath)Dalamud.Common.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="Dalamud.Bindings.ImGui">
-      <HintPath>$(DalamudLibPath)Dalamud.Bindings.ImGui.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="Dalamud.Bindings.ImPlot">
-      <HintPath>$(DalamudLibPath)Dalamud.Bindings.ImPlot.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="ImGuiScene">
-      <HintPath>$(DalamudLibPath)ImGuiScene.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="Lumina">
-      <HintPath>$(DalamudLibPath)Lumina.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-    <Reference Include="Lumina.Excel">
-      <HintPath>$(DalamudLibPath)Lumina.Excel.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
-	<Reference Include="InteropGenerator.Runtime">
-	  <HintPath>$(DalamudLibPath)InteropGenerator.Runtime.dll</HintPath>
-	  <Private>False</Private>
-	</Reference>
-  </ItemGroup>
+	<ItemGroup>
+		<Using Include="System" />
+		<Using Include="System.Collections" />
+		<Using Include="System.Collections.Generic" />
+		<Using Include="System.Linq" />
+	</ItemGroup>
 </Project>
