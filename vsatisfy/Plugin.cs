@@ -1,9 +1,7 @@
-﻿using Dalamud.Common;
-using Dalamud.Game;
+﻿using Dalamud.Game;
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
-using System.Reflection;
 
 namespace Satisfy;
 

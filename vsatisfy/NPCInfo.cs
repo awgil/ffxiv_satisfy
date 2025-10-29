@@ -1,4 +1,5 @@
-﻿using Lumina.Excel.Sheets;
+﻿using FFXIVClientStructs.FFXIV.Client.Game;
+using Lumina.Excel.Sheets;
 
 namespace Satisfy;
 
@@ -25,6 +26,7 @@ public record class NPCInfo(int Index, uint TurninId, string Name, int MaxDelive
 
     public uint SupplyIndex => (uint)SupplyIndices[Rank];
     public uint AchievementCur => Math.Min(AchievementStart + (uint)UsedDeliveries, AchievementMax);
+    public bool IsUnlocked => Service.LuminaRow<SatisfactionNpc>((uint)Index) is { QuestRequired.RowId: var questId } && QuestManager.IsQuestComplete(questId);
 
     public void InitHardcodedData(uint achievementId, uint territoryId)
     {

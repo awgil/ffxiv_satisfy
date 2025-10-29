@@ -57,6 +57,9 @@ public unsafe class MainWindow : Window, IDisposable
         _npcs[8].InitHardcodedData(3173, 816);
         _npcs[9].InitHardcodedData(3361, 956);
         _npcs[10].InitHardcodedData(3602, 1190);
+
+        if (_npcs.Any(n => n.AchievementId is 0 || n.TerritoryId is 0))
+            Service.Log.Warning("Some NPCs are missing hardcoded data. Please report this on GitHub.");
     }
 
     public void Dispose()
@@ -75,7 +78,7 @@ public unsafe class MainWindow : Window, IDisposable
 
         if (isLoaded)
         {
-            IsOpen = Plugin.Config.AutoShowIfIncomplete && SatisfactionSupplyManager.Instance()->GetRemainingAllowances() > 0 && _npcs.Any(n => n.Unlocked);
+            IsOpen = Plugin.Config.AutoShowIfIncomplete && SatisfactionSupplyManager.Instance()->GetRemainingAllowances() > 0 && _npcs.Any(n => n.IsUnlocked);
         }
         else
         {
