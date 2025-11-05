@@ -56,17 +56,16 @@ public abstract class AutoCommon(IDalamudPluginInterface dalamud) : AutoTask
 
         if (teleportAetheryteId != closestAetheryteId)
         {
-            var (aetheryteId, aetherytePos) = Game.FindAetheryte(teleportAetheryteId);
-            await MoveTo(aetherytePos, 10);
-            ErrorIf(!Game.InteractWith(aetheryteId), "Failed to interact with aetheryte");
-            await WaitUntilSkipTalk(Game.IsSelectStringAddonActive, "WaitSelectAethernet");
-
             var primaryRow = Service.LuminaRow<Lumina.Excel.Sheets.Aetheryte>(teleportAetheryteId)!.Value;
             var shardRow = Service.LuminaRow<Lumina.Excel.Sheets.Aetheryte>(closestAetheryteId)!.Value;
             var primaryPos = Map.AetherytePosition(primaryRow);
             var shardPos = Map.AetherytePosition(shardRow);
             if (Map.ShouldUseAethernet(primaryPos, shardPos, destination))
             {
+                var (aetheryteId, aetherytePos) = Game.FindAetheryte(teleportAetheryteId);
+                await MoveTo(aetherytePos, 10);
+                ErrorIf(!Game.InteractWith(aetheryteId), "Failed to interact with aetheryte");
+                await WaitUntilSkipTalk(Game.IsSelectStringAddonActive, "WaitSelectAethernet");
                 Game.TeleportToAethernet(teleportAetheryteId, closestAetheryteId);
                 await WaitUntil(Game.IsCastingTeleport, "TeleportStart");
                 await WaitUntil(() => Game.CurrentTerritory() == territoryId && Game.IsTerritoryLoaded() && Game.Interactable(), "TeleportFinish");
