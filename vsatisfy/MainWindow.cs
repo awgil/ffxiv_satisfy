@@ -162,15 +162,14 @@ public unsafe class MainWindow : Window, IDisposable
                 AddPotentialReward(reward.SatisfactionSupplyRewardData[1].RewardCurrency, reward.SatisfactionSupplyRewardData[1].QuantityHigh * reward.BonusMultiplier / 100, npc.MaxDeliveries - npc.UsedDeliveries); // todo: don't add at low level?..
             }
 
+            if (npc.GatherData == null || npc.GatherData.GatherItemId != npc.TurnInItems[1])
+                npc.GatherData = new(npc.TurnInItems[1]);
+
             if (npc.FishData == null || npc.FishData.FishItemId != npc.TurnInItems[2])
-            {
                 npc.FishData = new(npc.TurnInItems[2]);
-            }
 
             if (npc.AchievementMax == 0 && npc.AchievementId != 0 && Plugin.Config.AutoFetchAchievements)
-            {
                 _achi.Request(npc.AchievementId);
-            }
         }
 
         _rewards.Sort((l, r) => (l.Currency, -l.Amount).CompareTo((r.Currency, -r.Amount)));
@@ -368,6 +367,9 @@ public unsafe class MainWindow : Window, IDisposable
 
         if (ImGui.Button("Auto craft turnin"))
             _auto.Start(new AutoCraft(npc, _dalamud));
+        ImGui.SameLine();
+        if (ImGui.Button("Auto gather turnin"))
+            _auto.Start(new AutoGather(npc, _dalamud));
         ImGui.SameLine();
         if (ImGui.Button("Auto fish turnin"))
             _auto.Start(new AutoFish(npc, _dalamud));

@@ -4,7 +4,7 @@ using System.Numerics;
 namespace Satisfy;
 
 // data & functions needed to fish an item
-public sealed class Fish
+public sealed class FishData
 {
     public uint FishItemId;
     public bool IsSpearFish;
@@ -13,7 +13,7 @@ public sealed class Fish
     public Vector3 Center;
     public int Radius; // TODO: no idea what scale it uses?..
 
-    public Fish(uint itemId)
+    public FishData(uint itemId)
     {
         FishItemId = itemId;
         if (Service.LuminaSheet<FishingSpot>()!.FirstOrDefault(s => s.Item.Any(i => i.RowId == FishItemId)) is var fish && fish.RowId != 0)

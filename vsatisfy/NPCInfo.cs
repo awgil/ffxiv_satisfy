@@ -22,7 +22,8 @@ public record class NPCInfo(int Index, uint TurninId, string Name, int MaxDelive
     public uint AchievementMax;
     public uint TerritoryId; // where turn-in npc is located (note: we assume crafting vendor is always is the same zone)
     public CraftTurnin? CraftData;
-    public Fish? FishData;
+    public FishData? FishData;
+    public GatherData? GatherData;
 
     public uint SupplyIndex => (uint)SupplyIndices[Rank];
     public uint AchievementCur => Math.Min(AchievementStart + (uint)UsedDeliveries, AchievementMax);

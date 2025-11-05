@@ -16,8 +16,10 @@ public sealed class Config
     public bool ShowDebugUI = false;
     public JobChoice CraftJobType = JobChoice.Specific;
     public uint SelectedCraftJob = 8;
+    public uint SelectedGatherJob = 16;
 
-    private readonly (uint rowId, string name)[] _craftJobs = Service.LuminaSheet<Lumina.Excel.Sheets.ClassJob>()!.Where(c => c.ClassJobCategory.RowId == 33).Select(c => (c.RowId, c.Name.ToString())).ToArray();
+    private readonly (uint rowId, string name)[] _craftJobs = [.. Service.LuminaSheet<Lumina.Excel.Sheets.ClassJob>()!.Where(c => c.ClassJobCategory.RowId == 33).Select(c => (c.RowId, c.Name.ToString()))];
+    private readonly (uint rowId, string name)[] _gatherJobs = [.. Service.LuminaSheet<Lumina.Excel.Sheets.ClassJob>()!.Where(c => c.RowId is 16 or 17).Select(c => (c.RowId, c.Name.ToString()))];
 
     public enum JobChoice
     {
@@ -43,14 +45,29 @@ public sealed class Config
             NotifyModified();
         if (CraftJobType == JobChoice.Specific)
         {
-            using var combo = ImRaii.Combo("Specific job", _craftJobs.Single(c => c.rowId == SelectedCraftJob).name);
-            if (combo)
+            using (var craftCombo = ImRaii.Combo("Specific crafter", _craftJobs.Single(c => c.rowId == SelectedCraftJob).name))
             {
-                for (var i = 0; i < _craftJobs.Length; ++i)
+                if (craftCombo)
                 {
-                    if (ImGui.Selectable(_craftJobs[i].name, SelectedCraftJob == _craftJobs[i].rowId))
+                    for (var i = 0; i < _craftJobs.Length; ++i)
                     {
-                        SelectedCraftJob = _craftJobs[i].rowId;
+                        if (ImGui.Selectable(_craftJobs[i].name, SelectedCraftJob == _craftJobs[i].rowId))
+                        {
+                            SelectedCraftJob = _craftJobs[i].rowId;
+                            NotifyModified();
+                        }
+                    }
+                }
+            }
+
+            using var gatherCombo = ImRaii.Combo("Specific gatherer", _gatherJobs.Single(c => c.rowId == SelectedGatherJob).name);
+            if (gatherCombo)
+            {
+                for (var i = 0; i < _gatherJobs.Length; ++i)
+                {
+                    if (ImGui.Selectable(_gatherJobs[i].name, SelectedGatherJob == _gatherJobs[i].rowId))
+                    {
+                        SelectedGatherJob = _gatherJobs[i].rowId;
                         NotifyModified();
                     }
                 }
