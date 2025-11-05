@@ -50,8 +50,8 @@ public abstract class AutoCommon(IDalamudPluginInterface dalamud) : AutoTask
         if (Game.CurrentTerritory() != Service.LuminaRow<Lumina.Excel.Sheets.Aetheryte>(teleportAetheryteId)!.Value.Territory.RowId)
         {
             ErrorIf(!Game.ExecuteTeleport(teleportAetheryteId), $"Failed to teleport to {teleportAetheryteId}");
-            await WaitWhile(() => !Game.PlayerIsBusy(), "TeleportStart");
-            await WaitWhile(Game.PlayerIsBusy, "TeleportFinish");
+            await WaitUntil(Game.IsCastingTeleport, "TeleportStart");
+            await WaitUntil(() => Game.CurrentTerritory() == Service.LuminaRow<Lumina.Excel.Sheets.Aetheryte>(teleportAetheryteId)?.Territory.RowId && Game.IsTerritoryLoaded() && Game.Interactable(), "TeleportFinish");
         }
 
         if (teleportAetheryteId != closestAetheryteId)
@@ -68,8 +68,8 @@ public abstract class AutoCommon(IDalamudPluginInterface dalamud) : AutoTask
             if (Map.ShouldUseAethernet(primaryPos, shardPos, destination))
             {
                 Game.TeleportToAethernet(teleportAetheryteId, closestAetheryteId);
-                await WaitWhile(() => !Game.PlayerIsBusy(), "TeleportAethernetStart");
-                await WaitWhile(Game.PlayerIsBusy, "TeleportAethernetFinish");
+                await WaitUntil(Game.IsCastingTeleport, "TeleportStart");
+                await WaitUntil(() => Game.CurrentTerritory() == territoryId && Game.IsTerritoryLoaded() && Game.Interactable(), "TeleportFinish");
             }
         }
 
@@ -81,8 +81,8 @@ public abstract class AutoCommon(IDalamudPluginInterface dalamud) : AutoTask
             ErrorIf(!Game.InteractWith(aetheryteId), "Failed to interact with aetheryte");
             await WaitUntilSkipTalk(Game.IsSelectStringAddonActive, "WaitSelectFirmament");
             Game.TeleportToFirmament(teleportAetheryteId);
-            await WaitWhile(() => !Game.PlayerIsBusy(), "TeleportFirmamentStart");
-            await WaitWhile(Game.PlayerIsBusy, "TeleportFirmamentFinish");
+            await WaitUntil(Game.IsCastingTeleport, "TeleportStart");
+            await WaitUntil(() => Game.CurrentTerritory() == territoryId && Game.IsTerritoryLoaded() && Game.Interactable(), "TeleportFinish");
         }
 
         ErrorIf(Game.CurrentTerritory() != territoryId, "Failed to teleport to expected zone");

@@ -311,4 +311,14 @@ public static unsafe class Game
         if (addon != null && addon->IsVisible)
             addon->Close(false);
     }
+
+    public static bool IsTerritoryLoaded() => GameMain.Instance()->TerritoryLoadState == 2;
+
+    public static bool IsCastingTeleport()
+    {
+        var info = Player.Character->GetCastInfo();
+        return info is not null && info->IsCasting && info->ActionType == ActionType.Action && info->ActionId == 5;
+    }
+
+    public static bool Interactable() => Service.ClientState.LocalPlayer?.IsTargetable ?? false;
 }

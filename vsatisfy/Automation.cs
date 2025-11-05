@@ -76,6 +76,8 @@ public abstract class AutoTask
         }
     }
 
+    protected async Task WaitUntil(Func<bool> condition, string scopeName, int checkFrequency = 1, bool logContinuously = false) => await WaitWhile(() => !condition(), scopeName, checkFrequency);
+
     protected void Log(string message) => Service.Log.Debug($"[{GetType().Name}] [{string.Join(" > ", _debugContext)}] {message}");
 
     // start a new debug context; should be disposed, so usually should be assigned to RAII variable
