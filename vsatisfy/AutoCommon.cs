@@ -43,7 +43,8 @@ public abstract class AutoCommon(IDalamudPluginInterface dalamud) : AutoTask
         if (Game.CurrentTerritory() == territoryId)
             return; // already in correct zone
 
-        var closestAetheryteId = Map.FindClosestAetheryte(territoryId, destination);
+        var playerY = Game.PlayerPosition().Y;
+        var closestAetheryteId = Map.FindClosestAetheryte(territoryId, destination, playerY);
         var teleportAetheryteId = Map.FindPrimaryAetheryte(closestAetheryteId);
         ErrorIf(teleportAetheryteId == 0, $"Failed to find aetheryte in {territoryId}");
         if (Game.CurrentTerritory() != Service.LuminaRow<Lumina.Excel.Sheets.Aetheryte>(teleportAetheryteId)!.Value.Territory.RowId)
@@ -59,9 +60,17 @@ public abstract class AutoCommon(IDalamudPluginInterface dalamud) : AutoTask
             await MoveTo(aetherytePos, 10);
             ErrorIf(!Game.InteractWith(aetheryteId), "Failed to interact with aetheryte");
             await WaitUntilSkipTalk(Game.IsSelectStringAddonActive, "WaitSelectAethernet");
-            Game.TeleportToAethernet(teleportAetheryteId, closestAetheryteId);
-            await WaitWhile(() => !Game.PlayerIsBusy(), "TeleportAethernetStart");
-            await WaitWhile(Game.PlayerIsBusy, "TeleportAethernetFinish");
+
+            var primaryRow = Service.LuminaRow<Lumina.Excel.Sheets.Aetheryte>(teleportAetheryteId)!.Value;
+            var shardRow = Service.LuminaRow<Lumina.Excel.Sheets.Aetheryte>(closestAetheryteId)!.Value;
+            var primaryPos = Map.AetherytePosition(primaryRow);
+            var shardPos = Map.AetherytePosition(shardRow);
+            if (Map.ShouldUseAethernet(primaryPos, shardPos, destination))
+            {
+                Game.TeleportToAethernet(teleportAetheryteId, closestAetheryteId);
+                await WaitWhile(() => !Game.PlayerIsBusy(), "TeleportAethernetStart");
+                await WaitWhile(Game.PlayerIsBusy, "TeleportAethernetFinish");
+            }
         }
 
         if (territoryId == 886)

@@ -26,7 +26,7 @@ public static class Map
         return (coord * factor - 1024f) / scale - offset * 0.001f;
     }
 
-    public static uint FindClosestAetheryte(uint territoryTypeId, Vector3 worldPos)
+    public static uint FindClosestAetheryte(uint territoryTypeId, Vector3 worldPos, float? preferredY = null, float verticalWeight = 8f)
     {
         if (territoryTypeId == 886)
         {
@@ -34,8 +34,45 @@ public static class Map
             // firmament aetherytes are special (see 
             return 70;
         }
-        List<Aetheryte> aetherytes = [.. Service.LuminaSheet<Aetheryte>()?.Where(a => a.Territory.RowId == territoryTypeId)];
-        return aetherytes.Count > 0 ? aetherytes.MinBy(a => (worldPos - AetherytePosition(a)).LengthSquared()).RowId : 0;
+        List<Aetheryte> aetherytes = [.. Service.LuminaSheet<Aetheryte>()?.Where(a => a.Territory.RowId == territoryTypeId) ?? []];
+        if (aetherytes.Count == 0)
+            return 0;
+
+        if (preferredY.HasValue)
+        {
+            float targetY = preferredY.Value;
+            return aetherytes
+                .MinBy(a =>
+                {
+                    var pos = AetherytePosition(a);
+                    var dx = worldPos.X - pos.X;
+                    var dz = worldPos.Z - pos.Z;
+                    var dy = (targetY - pos.Y) * verticalWeight;
+                    return dx * dx + dz * dz + dy * dy;
+                })
+                .RowId;
+        }
+
+        return aetherytes.MinBy(a => (worldPos - AetherytePosition(a)).LengthSquared()).RowId;
+    }
+
+    public static bool ShouldUseAethernet(Vector3 primaryAetherytePos, Vector3 shardPos, Vector3 destination, float verticalWeight = 8f, float improvementFactor = 0.8f, float maxVerticalDelta = 6f)
+    {
+        // this is hopefully to avoid an issue like in the Eulmore where on a 2D plane the basement aethernet is closer
+        if (MathF.Abs(shardPos.Y - destination.Y) > maxVerticalDelta)
+            return false;
+
+        var primaryCost = WeightedDistanceSquared(primaryAetherytePos, destination, verticalWeight);
+        var shardCost = WeightedDistanceSquared(shardPos, destination, verticalWeight);
+        return shardCost < primaryCost * improvementFactor;
+    }
+
+    private static float WeightedDistanceSquared(in Vector3 a, in Vector3 b, float verticalWeight)
+    {
+        var dx = a.X - b.X;
+        var dz = a.Z - b.Z;
+        var dy = (a.Y - b.Y) * verticalWeight;
+        return dx * dx + dz * dz + dy * dy;
     }
 
     public static Vector3 AetherytePosition(Aetheryte a)
