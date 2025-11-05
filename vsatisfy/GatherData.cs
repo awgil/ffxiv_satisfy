@@ -8,11 +8,16 @@ public sealed class GatherData
 {
     public uint GatherItemId;
     public uint ClassJobId => GetGatherer();
+    public uint CollectabilityLow;
+    public uint CollectabilityMid;
+    public uint CollectabilityHigh;
     public GatherPoint[] GatherPoints = [];
 
     public GatherData(uint itemId)
     {
         GatherItemId = itemId;
+        if (Service.LuminaSheetSubrow<SatisfactionSupply>()?.Flatten().FirstOrDefault(x => x.Item.RowId == itemId) is { } subrow)
+            (CollectabilityLow, CollectabilityMid, CollectabilityHigh) = (subrow.CollectabilityLow, subrow.CollectabilityMid, subrow.CollectabilityHigh);
         if (Service.LuminaRow<GatheringItem>(GatherItemId) is { RowId: var item } && Service.LuminaSubrows<GatheringItemPoint>(item) is { } points)
             foreach (var point in points)
                 GatherPoints = [.. GatherPoints, GatherPoint.FromSubrow(point)];
