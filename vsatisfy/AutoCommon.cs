@@ -67,8 +67,8 @@ public abstract class AutoCommon(IDalamudPluginInterface dalamud) : AutoTask
                 ErrorIf(!Game.InteractWith(aetheryteId), "Failed to interact with aetheryte");
                 await WaitUntilSkipTalk(Game.IsSelectStringAddonActive, "WaitSelectAethernet");
                 Game.TeleportToAethernet(teleportAetheryteId, closestAetheryteId);
-                await WaitUntil(Game.IsCastingTeleport, "TeleportStart");
-                await WaitUntil(() => Game.CurrentTerritory() == territoryId && Game.IsTerritoryLoaded() && Game.Interactable(), "TeleportFinish");
+                await WaitWhile(() => !Game.PlayerIsBusy(), "TeleportAethernetStart");
+                await WaitWhile(Game.PlayerIsBusy, "TeleportAethernetFinish");
             }
         }
 
@@ -80,8 +80,8 @@ public abstract class AutoCommon(IDalamudPluginInterface dalamud) : AutoTask
             ErrorIf(!Game.InteractWith(aetheryteId), "Failed to interact with aetheryte");
             await WaitUntilSkipTalk(Game.IsSelectStringAddonActive, "WaitSelectFirmament");
             Game.TeleportToFirmament(teleportAetheryteId);
-            await WaitUntil(Game.IsCastingTeleport, "TeleportStart");
-            await WaitUntil(() => Game.CurrentTerritory() == territoryId && Game.IsTerritoryLoaded() && Game.Interactable(), "TeleportFinish");
+            await WaitWhile(() => !Game.PlayerIsBusy(), "TeleportFirmamentStart");
+            await WaitWhile(Game.PlayerIsBusy, "TeleportFirmamentFinish");
         }
 
         ErrorIf(Game.CurrentTerritory() != territoryId, "Failed to teleport to expected zone");
