@@ -35,7 +35,7 @@ public sealed class AutoGather(NPCInfo npc, IDalamudPluginInterface dalamud) : A
     {
         Status = "Gathering with Questionable";
         using var scope = BeginScope("Gathering");
-        using var stop = new OnDispose(() => _stop.InvokeAction($"{Service.PluginInterface.Manifest.InternalName}"));
+        using var stop = new OnDispose(() => _stop.InvokeFunc($"{Service.PluginInterface.Manifest.InternalName}"));
         ErrorIf(!_startGathering.InvokeFunc(npc.TurninId, npc.GatherData!.GatherItemId, (byte)npc.GatherData.ClassJobId, npc.RemainingTurnins(1)), "Unable to invoke Questionable");
         await WaitWhile(() => !_isRunning.InvokeFunc(), "Waiting for gathering to start");
         await WaitWhile(_isRunning.InvokeFunc, "Waiting for gathering to finish");
