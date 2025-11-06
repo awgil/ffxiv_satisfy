@@ -56,12 +56,9 @@ public static class Map
         return aetherytes.MinBy(a => (worldPos - AetherytePosition(a)).LengthSquared()).RowId;
     }
 
-    public static bool ShouldUseAethernet(Vector3 primaryAetherytePos, Vector3 shardPos, Vector3 destination, float verticalWeight = 8f, float improvementFactor = 0.8f, float maxVerticalDelta = 6f)
+    public static bool ShouldUseAethernet(Vector3 primaryAetherytePos, Vector3 shardPos, Vector3 destination, float verticalWeight = 8f, float improvementFactor = 0.8f)
     {
         // this is hopefully to avoid an issue like in the Eulmore where on a 2D plane the basement aethernet is closer
-        if (MathF.Abs(shardPos.Y - destination.Y) > maxVerticalDelta)
-            return false;
-
         var primaryCost = WeightedDistanceSquared(primaryAetherytePos, destination, verticalWeight);
         var shardCost = WeightedDistanceSquared(shardPos, destination, verticalWeight);
         return shardCost < primaryCost * improvementFactor;
