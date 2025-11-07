@@ -24,7 +24,7 @@ public static unsafe class Game
         var obj = GameObjectManager.Instance()->Objects.GetObjectByGameObjectId(instanceId);
         if (obj == null)
             return false;
-        TargetSystem.Instance()->InteractWithObject(obj);
+        TargetSystem.Instance()->InteractWithObject(obj, false);
         return true;
     }
 
