@@ -8,8 +8,8 @@ public sealed class AutoGather(NPCInfo npc, IDalamudPluginInterface dalamud) : A
 {
     private readonly ICallGateSubscriber<bool> _isRunning = dalamud.GetIpcSubscriber<bool>("Questionable.IsRunning");
     private readonly ICallGateSubscriber<string, bool> _stop = dalamud.GetIpcSubscriber<string, bool>("Questionable.Stop");
-    // npcId, itemId, classJob, quantity
-    private readonly ICallGateSubscriber<uint, uint, byte, int, bool> _startGathering = dalamud.GetIpcSubscriber<uint, uint, byte, int, bool>("Questionable.StartGathering");
+    // uint npcId, uint itemId, byte classJob = ((byte)Job.MIN), int quantity = 1, ushort collectability = 0
+    private readonly ICallGateSubscriber<uint, uint, byte, int, ushort, bool> _startGathering = dalamud.GetIpcSubscriber<uint, uint, byte, int, ushort, bool>("Questionable.StartGatheringComplex");
     protected override async Task Execute()
     {
         var remainingTurnins = npc.RemainingTurnins(1);
@@ -36,7 +36,7 @@ public sealed class AutoGather(NPCInfo npc, IDalamudPluginInterface dalamud) : A
         Status = "Gathering with Questionable";
         using var scope = BeginScope("Gathering");
         using var stop = new OnDispose(() => _stop.InvokeFunc($"{Service.PluginInterface.Manifest.InternalName}"));
-        ErrorIf(!_startGathering.InvokeFunc(npc.TurninId, npc.GatherData!.GatherItemId, (byte)npc.GatherData.ClassJobId, npc.RemainingTurnins(1)), "Unable to invoke Questionable");
+        ErrorIf(!_startGathering.InvokeFunc(npc.TurninId, npc.GatherData!.GatherItemId, (byte)npc.GatherData.ClassJobId, npc.RemainingTurnins(1), (ushort)npc.GatherData.CollectabilityHigh), "Unable to invoke Questionable");
         await WaitWhile(() => !_isRunning.InvokeFunc(), "Waiting for gathering to start");
         await WaitWhile(_isRunning.InvokeFunc, "Waiting for gathering to finish");
     }
