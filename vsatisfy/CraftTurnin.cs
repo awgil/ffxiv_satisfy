@@ -141,8 +141,7 @@ public sealed class CraftTurnin
         uint jobId = Plugin.Config.SelectedCraftJob;
         _ = Service.Framework.RunOnFrameworkThread(() =>
         {
-            if (Service.ClientState.LocalPlayer is { } player)
-                jobId = Service.LuminaRow<ClassJob>(player.ClassJob.RowId)?.RowId ?? Plugin.Config.SelectedCraftJob;
+            jobId = Service.PlayerState.ClassJob.RowId is 0 ? Service.PlayerState.ClassJob.RowId : Plugin.Config.SelectedCraftJob;
         }).Wait(5000);
         return jobId;
     }

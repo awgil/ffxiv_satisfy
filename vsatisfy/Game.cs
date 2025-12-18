@@ -10,7 +10,6 @@ using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using FFXIVClientStructs.Interop;
 using System.Numerics;
-using System.Runtime.Intrinsics.Arm;
 
 namespace Satisfy;
 
@@ -317,9 +316,9 @@ public static unsafe class Game
 
     public static bool IsCastingTeleport()
     {
-        var info = ((FFXIVClientStructs.FFXIV.Client.Game.Character.Character*)Service.ClientState.LocalPlayer!.Address)->GetCastInfo();
+        var info = ((FFXIVClientStructs.FFXIV.Client.Game.Character.Character*)Service.Objects.LocalPlayer!.Address)->GetCastInfo();
         return info is not null && info->IsCasting && info->ActionType == ActionType.Action && info->ActionId == 5;
     }
 
-    public static bool Interactable() => Service.ClientState.LocalPlayer?.IsTargetable ?? false;
+    public static bool Interactable() => Service.Objects.LocalPlayer?.IsTargetable ?? false;
 }

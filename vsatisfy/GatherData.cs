@@ -73,8 +73,7 @@ public sealed class GatherData
         uint jobId = Plugin.Config.SelectedGatherJob;
         _ = Service.Framework.RunOnFrameworkThread(() =>
         {
-            if (Service.ClientState.LocalPlayer is { } player)
-                jobId = player.ClassJob.RowId;
+            jobId = Service.PlayerState.ClassJob.RowId;
         }).Wait(5000);
         return jobId is 16 or 17 ? jobId : Plugin.Config.SelectedGatherJob;
     }
