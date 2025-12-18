@@ -1,5 +1,4 @@
-﻿using Dalamud.Game;
-using Dalamud.Interface.Windowing;
+﻿using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 
@@ -8,11 +7,11 @@ namespace Satisfy;
 public sealed class Plugin : IDalamudPlugin
 {
     public static Config Config { get; private set; } = null!;
-    private WindowSystem WindowSystem = new("vsatisfy");
-    private MainWindow _wndMain;
-    private ICommandManager _cmd;
+    private readonly WindowSystem WindowSystem = new("vsatisfy");
+    private readonly MainWindow _wndMain;
+    private readonly ICommandManager _cmd;
 
-    public Plugin(IDalamudPluginInterface dalamud, ISigScanner sigScanner, ICommandManager commandManager)
+    public Plugin(IDalamudPluginInterface dalamud, ICommandManager commandManager)
     {
         if (!dalamud.ConfigDirectory.Exists)
             dalamud.ConfigDirectory.Create();

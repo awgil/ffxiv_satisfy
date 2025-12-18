@@ -317,7 +317,7 @@ public static unsafe class Game
     public static bool IsCastingTeleport()
     {
         var info = ((FFXIVClientStructs.FFXIV.Client.Game.Character.Character*)Service.Objects.LocalPlayer!.Address)->GetCastInfo();
-        return info is not null && info->IsCasting && info->ActionType == ActionType.Action && info->ActionId == 5;
+        return info is not null && info->IsCasting && (ActionType)info->ActionType == ActionType.Action && info->ActionId == 5;
     }
 
     public static bool Interactable() => Service.Objects.LocalPlayer?.IsTargetable ?? false;
