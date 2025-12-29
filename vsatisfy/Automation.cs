@@ -1,4 +1,5 @@
-﻿using System.Threading;
+﻿using Dalamud.Plugin.Ipc.Exceptions;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Satisfy;
@@ -51,10 +52,25 @@ public abstract class AutoTask
             var task = Execute();
             await task.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing); // we don't really care about cancelation...
             if (task.IsFaulted)
+            {
+                if (task.Exception.InnerException is IpcNotReadyError err)
+                    Service.Chat.PrintError($"{GetPluginName(err.Message)} plugin is required.");
                 Service.Log.Warning($"Task ended with error: {task.Exception}");
+            }
             completed();
             _cts.Dispose();
         }, _cts.Token);
+
+        static string GetPluginName(string errorMessage)
+        {
+            const string prefix = "IPC method ";
+            if (!errorMessage.StartsWith(prefix))
+                return "Unknown";
+
+            var startIndex = prefix.Length;
+            var dotIndex = errorMessage.IndexOf('.', startIndex);
+            return dotIndex == -1 ? "Unknown" : errorMessage[startIndex..dotIndex];
+        }
     }
 
     // implementations are typically expected to be async (coroutines)
