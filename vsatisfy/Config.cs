@@ -77,6 +77,11 @@ public sealed class Config
 
     public void Load(FileInfo file)
     {
+        if (!file.Exists)
+        {
+            Service.Log.Info($"Config file {file.FullName} does not exist, skipping load.");
+            return;
+        }
         try
         {
             using var json = ReadConvertFile(file);
