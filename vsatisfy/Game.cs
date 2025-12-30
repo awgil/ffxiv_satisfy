@@ -265,7 +265,7 @@ public static unsafe class Game
         return agent->IsAgentActive() && ui->NpcTrade.Requests.Count == 1 && ui->NpcTrade.Requests.Items[0].ItemId == itemId;
     }
 
-    public static void TurnInRequestCommit()
+    public static void TurnInRequestCommit(int slot)
     {
         var agent = AgentNpcTrade.Instance();
         if (!agent->IsAgentActive())
@@ -283,14 +283,14 @@ public static unsafe class Game
         var res = new AtkValue();
         Span<AtkValue> param = stackalloc AtkValue[4];
         param[0].SetInt(2); // start turnin
-        param[1].SetInt(0); // slot
+        param[1].SetInt(slot); // slot
         param[2].SetInt(0); // ???
         param[3].SetInt(0); // ???
         agent->ReceiveEvent(&res, param.GetPointer(0), 4, 0);
 
-        if (agent->SelectedTurnInSlot != 0 || agent->SelectedTurnInSlotItemOptions <= 0)
+        if (agent->SelectedTurnInSlot != slot || agent->SelectedTurnInSlotItemOptions <= 0)
         {
-            Service.Log.Error($"Failed to start turn-in: cur slot={agent->SelectedTurnInSlot}, count={agent->SelectedTurnInSlotItemOptions}");
+            Service.Log.Error($"Failed to start turn-in: cur slot={agent->SelectedTurnInSlot}, expected={slot}, count={agent->SelectedTurnInSlotItemOptions}");
             return;
         }
 

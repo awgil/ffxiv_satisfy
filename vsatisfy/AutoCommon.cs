@@ -129,7 +129,7 @@ public abstract class AutoCommon(IDalamudPluginInterface dalamud) : AutoTask
             await WaitUntilSkipTalk(() => Game.IsTurnInSupplyInProgress((uint)npcIndex + 1), "WaitDialog");
             Game.TurnInSupply(slot);
             await WaitWhile(() => !Game.IsTurnInRequestInProgress(itemId), "WaitHandIn");
-            Game.TurnInRequestCommit();
+            Game.TurnInRequestCommit(slot);
         }
         await WaitUntilSkipTalk(() => !Service.Conditions[ConditionFlag.OccupiedInCutSceneEvent], "WaitCutsceneStart");
         await WaitUntilSkipTalk(() => Service.Conditions[ConditionFlag.OccupiedInCutSceneEvent], "WaitCutsceneEnd");
