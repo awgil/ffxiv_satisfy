@@ -34,6 +34,7 @@ public sealed class AutoCraft(NPCInfo npc, IDalamudPluginInterface dalamud) : Au
             {
                 Status = $"Buying {missingIngredients}x {ItemName(ingredient.id)}";
                 await MoveTo(npc.CraftData.VendorLocation, 3);
+                await Dismount();
                 await BuyFromShop(npc.CraftData.VendorInstanceId, npc.CraftData.VendorShopId, ingredient.id, missingIngredients);
             }
             Status = $"Crafting {remainingCrafts}x {ItemName(turnInItemId)}";

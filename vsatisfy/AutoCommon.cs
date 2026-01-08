@@ -97,7 +97,7 @@ public abstract class AutoCommon(IDalamudPluginInterface dalamud) : AutoTask
         ErrorIf(!Service.Conditions[ConditionFlag.Mounted], "Failed to mount");
     }
 
-    private async Task Dismount()
+    protected async Task Dismount()
     {
         using var scope = BeginScope("Dismount");
         if (!Service.Conditions[ConditionFlag.Mounted]) return;
