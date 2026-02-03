@@ -43,7 +43,7 @@ public sealed class AutoCraft(NPCInfo npc, IDalamudPluginInterface dalamud) : Au
 
         Status = $"Turning in {remainingTurnins}x {ItemName(turnInItemId)}";
         await MoveTo(npc.CraftData.TurnInLocation, 3);
-        await TurnIn(npc.Index, npc.CraftData.TurnInInstanceId, npc.TurnInItems[0], 0, remainingTurnins);
+        await TurnIn(npc, 0);
     }
 
     private async Task BuyFromShop(ulong vendorInstanceId, uint shopId, uint itemId, int count)

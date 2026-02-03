@@ -28,7 +28,7 @@ public sealed class AutoGather(NPCInfo npc, IDalamudPluginInterface dalamud) : A
         Status = "Moving to Npc";
         await MoveTo(npc.CraftData.TurnInLocation, 3);
         Status = $"Turning in {remainingTurnins}x {ItemName(npc.TurnInItems[1])}";
-        await TurnIn(npc.Index, npc.CraftData.TurnInInstanceId, npc.TurnInItems[1], 1, remainingTurnins);
+        await TurnIn(npc, 1);
     }
 
     private async Task Gather()

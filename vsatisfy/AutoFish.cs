@@ -38,7 +38,7 @@ public sealed class AutoFish(NPCInfo npc, IDalamudPluginInterface dalamud) : Aut
 
             Status = $"Turning in {remainingTurnins}x {ItemName(turnInItemId)}";
             await MoveTo(npc.CraftData.TurnInLocation, 3);
-            await TurnIn(npc.Index, npc.CraftData.TurnInInstanceId, npc.TurnInItems[2], 2, remainingTurnins);
+            await TurnIn(npc, 2);
         }
     }
 }

@@ -115,20 +115,22 @@ public abstract class AutoCommon(IDalamudPluginInterface dalamud) : AutoTask
         ErrorIf(Service.Conditions[ConditionFlag.Mounted], "Failed to dismount");
     }
 
-    protected async Task TurnIn(int npcIndex, ulong npcInstanceId, uint itemId, int slot, int count)
+    protected async Task TurnIn(NPCInfo npc, int slot)
     {
         using var scope = BeginScope("TurnIn");
-        if (!Game.IsTurnInSupplyInProgress((uint)npcIndex + 1))
+        if (npc.CraftData is null || npc.RemainingTurnins(slot) is 0) return;
+
+        if (!Game.IsTurnInSupplyInProgress((uint)npc.Index + 1))
         {
-            ErrorIf(!Game.InteractWith(npcInstanceId), "Failed to interact with turn-in NPC");
+            ErrorIf(!Game.InteractWith(npc.CraftData.TurnInInstanceId), "Failed to interact with turn-in NPC");
             await WaitUntilSkipTalk(Game.IsSelectStringAddonActive, "WaitSelect");
             Game.SelectTurnIn();
         }
-        for (int i = 0; i < count; ++i)
+        for (int i = 0; i < npc.RemainingTurnins(slot); ++i)
         {
-            await WaitUntilSkipTalk(() => Game.IsTurnInSupplyInProgress((uint)npcIndex + 1), "WaitDialog");
+            await WaitUntilSkipTalk(() => Game.IsTurnInSupplyInProgress((uint)npc.Index + 1), "WaitDialog");
             Game.TurnInSupply(slot);
-            await WaitWhile(() => !Game.IsTurnInRequestInProgress(itemId), "WaitHandIn");
+            await WaitWhile(() => !Game.IsTurnInRequestInProgress(npc.TurnInItems[slot]), "WaitHandIn");
             Game.TurnInRequestCommit(slot);
         }
         await WaitUntilSkipTalk(() => !Service.Conditions[ConditionFlag.OccupiedInCutSceneEvent], "WaitCutsceneStart");
