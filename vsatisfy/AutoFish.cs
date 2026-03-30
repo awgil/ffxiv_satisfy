@@ -1,4 +1,4 @@
-﻿using Dalamud.Plugin;
+﻿using clib.TaskSystem;
 using Lumina.Excel.Sheets;
 using System.Threading.Tasks;
 
@@ -6,7 +6,7 @@ namespace Satisfy;
 
 // execute full fishing delivery: teleport to zone, fish, turn in
 // TODO: automate actual fishing, use autohook
-public sealed class AutoFish(NPCInfo npc, IDalamudPluginInterface dalamud) : AutoCommon(dalamud)
+public sealed class AutoFish(NPCInfo npc) : AutoCommon
 {
     protected override async Task Execute()
     {
@@ -29,7 +29,7 @@ public sealed class AutoFish(NPCInfo npc, IDalamudPluginInterface dalamud) : Aut
                 Status = $"Spearfishing at {Service.LuminaRow<SpearfishingNotebook>(npc.FishData.FishSpotId)?.PlaceName.ValueNullable?.Name}";
             else
                 Status = $"Fishing at {Service.LuminaRow<FishingSpot>(npc.FishData.FishSpotId)?.PlaceName.ValueNullable?.Name}";
-            await MoveTo(npc.FishData.Center, 10, true, true, true);
+            await MoveTo(npc.FishData.Center, MovementConfig.Everything.WithTolerance(10));
         }
         else // TODO: full auto...
         {
@@ -37,7 +37,7 @@ public sealed class AutoFish(NPCInfo npc, IDalamudPluginInterface dalamud) : Aut
             await TeleportTo(npc.TerritoryId, npc.CraftData.TurnInLocation);
 
             Status = $"Turning in {remainingTurnins}x {ItemName(turnInItemId)}";
-            await MoveTo(npc.CraftData.TurnInLocation, 3);
+            await MoveTo(npc.CraftData.TurnInLocation, MovementConfig.InteractRange);
             await TurnIn(npc, 2);
         }
     }

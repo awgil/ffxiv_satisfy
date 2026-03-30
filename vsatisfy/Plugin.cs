@@ -7,6 +7,9 @@ namespace Satisfy;
 public sealed class Plugin : IDalamudPlugin
 {
     public static Config Config { get; private set; } = null!;
+
+    public clib.Services.Automation Automation { get; }
+
     private readonly WindowSystem WindowSystem = new("vsatisfy");
     private readonly MainWindow _wndMain;
     private readonly ICommandManager _cmd;
@@ -25,7 +28,9 @@ public sealed class Plugin : IDalamudPlugin
         //FFXIVClientStructs.Interop.Generated.Addresses.Register();
         //InteropGenerator.Runtime.Resolver.GetInstance.Resolve();
 
-        dalamud.Create<Service>();
+        clib.CLibMain.Init(dalamud, this);
+        Service.Initialize(this, dalamud);
+        Automation = new();
 
         Config = new Config();
         Config.Load(dalamud.ConfigFile);

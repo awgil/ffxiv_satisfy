@@ -18,7 +18,6 @@ public unsafe class MainWindow : Window, IDisposable
 {
     private readonly IDalamudPluginInterface _dalamud;
     private readonly Achievements _achi = new();
-    private readonly Automation _auto = new();
     private readonly List<NPCInfo> _npcs = [];
     private readonly List<(uint Currency, int Amount, int Count)> _rewards = [];
     private bool _wasLoaded;
@@ -64,7 +63,7 @@ public unsafe class MainWindow : Window, IDisposable
 
     public void Dispose()
     {
-        _auto.Dispose();
+        Service.Automation.Dispose();
 
         _achi.AchievementProgress -= OnAchievementProgress;
         _achi.Dispose();
@@ -208,11 +207,11 @@ public unsafe class MainWindow : Window, IDisposable
 
     private void DrawMainTable()
     {
-        using (ImRaii.Disabled(!_auto.Running))
+        using (ImRaii.Disabled(!Service.Automation.Running))
             if (ImGui.Button("Stop current task"))
-                _auto.Stop();
+                Service.Automation.Stop();
         ImGui.SameLine();
-        ImGui.TextUnformatted($"Status: {_auto.CurrentTask?.Status ?? "idle"}");
+        ImGui.TextUnformatted($"Status: {Service.Automation.CurrentTask?.Status ?? "idle"}");
 
         using var table = ImRaii.Table("main_table", 5);
         if (!table)
@@ -366,13 +365,13 @@ public unsafe class MainWindow : Window, IDisposable
             return;
 
         if (ImGui.Button("Auto craft turnin"))
-            _auto.Start(new AutoCraft(npc, _dalamud));
+            Service.Automation.Start(new AutoCraft(npc));
         ImGui.SameLine();
         if (ImGui.Button("Auto gather turnin"))
-            _auto.Start(new AutoGather(npc, _dalamud));
+            Service.Automation.Start(new AutoGather(npc));
         ImGui.SameLine();
         if (ImGui.Button("Auto fish turnin"))
-            _auto.Start(new AutoFish(npc, _dalamud));
+            Service.Automation.Start(new AutoFish(npc));
     }
 
     private void OnAchievementProgress(uint id, uint current, uint max)

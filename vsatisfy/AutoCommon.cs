@@ -1,120 +1,12 @@
 ﻿using Dalamud.Game.ClientState.Conditions;
-using Dalamud.Plugin;
-using Dalamud.Plugin.Ipc;
-using System.Numerics;
 using System.Threading.Tasks;
+using clib.TaskSystem;
 
 namespace Satisfy;
 
 // common automation utilities
-public abstract class AutoCommon(IDalamudPluginInterface dalamud) : AutoTask
+public abstract class AutoCommon : TaskBase
 {
-    private readonly ICallGateSubscriber<bool> _vnavIsReady = dalamud.GetIpcSubscriber<bool>("vnavmesh.Nav.IsReady");
-    private readonly ICallGateSubscriber<float> _vnavBuildProgress = dalamud.GetIpcSubscriber<float>("vnavmesh.Nav.BuildProgress");
-    private readonly ICallGateSubscriber<Vector3, bool, bool> _vnavPathfindAndMoveTo = dalamud.GetIpcSubscriber<Vector3, bool, bool>("vnavmesh.SimpleMove.PathfindAndMoveTo");
-    private readonly ICallGateSubscriber<object> _vnavStop = dalamud.GetIpcSubscriber<object>("vnavmesh.Path.Stop");
-
-    protected async Task MoveTo(Vector3 dest, float tolerance, bool mount = false, bool fly = false, bool dismount = false)
-    {
-        using var scope = BeginScope("MoveTo");
-        if (Game.PlayerInRange(dest, tolerance))
-            return; // already in range
-
-        await TeleportTo(Game.CurrentTerritory(), dest);
-
-        if (mount || fly)
-            await Mount();
-
-        // ensure navmesh is ready
-        Status = "Waiting for Navmesh";
-        await WaitWhile(() => NavBuildProgress() >= 0, "BuildMesh");
-        ErrorIf(!NavIsReady(), "Failed to build navmesh for the zone");
-        ErrorIf(!NavPathfindAndMoveTo(dest, fly), "Failed to start pathfinding to destination");
-        Status = $"Moving to {dest}";
-        using var stop = new OnDispose(NavStop);
-        await WaitWhile(() => !(Game.PlayerInRange(dest, tolerance)), "Navigate");
-        if (dismount)
-            await Dismount();
-    }
-
-    protected async Task TeleportTo(uint territoryId, Vector3 destination)
-    {
-        using var scope = BeginScope("Teleport");
-        if (Game.CurrentTerritory() == territoryId)
-            return; // already in correct zone
-
-        var playerY = Game.PlayerPosition().Y;
-        var closestAetheryteId = Map.FindClosestAetheryte(territoryId, destination, playerY);
-        var teleportAetheryteId = Map.FindPrimaryAetheryte(closestAetheryteId);
-        ErrorIf(teleportAetheryteId == 0, $"Failed to find aetheryte in {territoryId}");
-        if (Game.CurrentTerritory() != Service.LuminaRow<Lumina.Excel.Sheets.Aetheryte>(teleportAetheryteId)!.Value.Territory.RowId)
-        {
-            ErrorIf(!Game.ExecuteTeleport(teleportAetheryteId), $"Failed to teleport to {teleportAetheryteId}");
-            await WaitUntil(Game.IsCastingTeleport, "TeleportStart");
-            await WaitUntil(() => Game.CurrentTerritory() == Service.LuminaRow<Lumina.Excel.Sheets.Aetheryte>(teleportAetheryteId)?.Territory.RowId && Game.IsTerritoryLoaded() && Game.Interactable(), "TeleportFinish");
-        }
-
-        if (teleportAetheryteId != closestAetheryteId)
-        {
-            var primaryRow = Service.LuminaRow<Lumina.Excel.Sheets.Aetheryte>(teleportAetheryteId)!.Value;
-            var shardRow = Service.LuminaRow<Lumina.Excel.Sheets.Aetheryte>(closestAetheryteId)!.Value;
-            var primaryPos = Map.AetherytePosition(primaryRow);
-            var shardPos = Map.AetherytePosition(shardRow);
-            if (Map.ShouldUseAethernet(primaryPos, shardPos, destination))
-            {
-                var (aetheryteId, aetherytePos) = Game.FindAetheryte(teleportAetheryteId);
-                await MoveTo(aetherytePos, 10);
-                ErrorIf(!Game.InteractWith(aetheryteId), "Failed to interact with aetheryte");
-                await WaitUntilSkipTalk(Game.IsSelectStringAddonActive, "WaitSelectAethernet");
-                Game.TeleportToAethernet(teleportAetheryteId, closestAetheryteId);
-                await WaitWhile(() => !Game.PlayerIsBusy(), "TeleportAethernetStart");
-                await WaitWhile(Game.PlayerIsBusy, "TeleportAethernetFinish");
-            }
-        }
-
-        if (territoryId == 886)
-        {
-            // firmament special case
-            var (aetheryteId, aetherytePos) = Game.FindAetheryte(teleportAetheryteId);
-            await MoveTo(aetherytePos, 10);
-            ErrorIf(!Game.InteractWith(aetheryteId), "Failed to interact with aetheryte");
-            await WaitUntilSkipTalk(Game.IsSelectStringAddonActive, "WaitSelectFirmament");
-            Game.TeleportToFirmament(teleportAetheryteId);
-            await WaitWhile(() => !Game.PlayerIsBusy(), "TeleportFirmamentStart");
-            await WaitWhile(Game.PlayerIsBusy, "TeleportFirmamentFinish");
-        }
-
-        ErrorIf(Game.CurrentTerritory() != territoryId, "Failed to teleport to expected zone");
-    }
-
-    protected async Task Mount()
-    {
-        using var scope = BeginScope("Mount");
-        if (Service.Conditions[ConditionFlag.Mounted]) return;
-        Status = "Mounting";
-        ErrorIf(!Game.UseAction(FFXIVClientStructs.FFXIV.Client.Game.ActionType.GeneralAction, 24), "Failed to call mount");
-        await WaitWhile(() => !Service.Conditions[ConditionFlag.Mounted], "Mounting");
-        ErrorIf(!Service.Conditions[ConditionFlag.Mounted], "Failed to mount");
-    }
-
-    protected async Task Dismount()
-    {
-        using var scope = BeginScope("Dismount");
-        if (!Service.Conditions[ConditionFlag.Mounted]) return;
-
-        if (Service.Conditions[ConditionFlag.InFlight])
-        {
-            Game.UseAction(FFXIVClientStructs.FFXIV.Client.Game.ActionType.GeneralAction, 23);
-            await WaitWhile(() => Service.Conditions[ConditionFlag.InFlight], "WaitingToLand");
-        }
-        if (Service.Conditions[ConditionFlag.Mounted] && !Service.Conditions[ConditionFlag.InFlight])
-        {
-            Game.UseAction(FFXIVClientStructs.FFXIV.Client.Game.ActionType.GeneralAction, 23);
-            await WaitWhile(() => Service.Conditions[ConditionFlag.Mounted], "WaitingToDismount");
-        }
-        ErrorIf(Service.Conditions[ConditionFlag.Mounted], "Failed to dismount");
-    }
-
     protected async Task TurnIn(NPCInfo npc, int slot)
     {
         using var scope = BeginScope("TurnIn");
@@ -154,9 +46,4 @@ public abstract class AutoCommon(IDalamudPluginInterface dalamud) : AutoTask
     }
 
     protected static string ItemName(uint itemId) => Service.LuminaRow<Lumina.Excel.Sheets.Item>(itemId)?.Name.ToString() ?? itemId.ToString();
-
-    private bool NavIsReady() => _vnavIsReady.InvokeFunc();
-    private float NavBuildProgress() => _vnavBuildProgress.InvokeFunc();
-    private bool NavPathfindAndMoveTo(Vector3 dest, bool fly = false) => _vnavPathfindAndMoveTo.InvokeFunc(dest, fly);
-    private void NavStop() => _vnavStop.InvokeAction();
 }

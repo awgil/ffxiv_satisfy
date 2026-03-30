@@ -22,6 +22,10 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <PackageReference Include="croizat.clib" Version="1.0.0" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<Using Include="System" />
 		<Using Include="System.Collections" />
 		<Using Include="System.Collections.Generic" />

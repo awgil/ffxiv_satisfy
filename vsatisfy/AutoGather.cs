@@ -1,15 +1,15 @@
-﻿using Dalamud.Plugin;
+﻿using clib.TaskSystem;
 using Dalamud.Plugin.Ipc;
 using System.Threading.Tasks;
 
 namespace Satisfy;
 
-public sealed class AutoGather(NPCInfo npc, IDalamudPluginInterface dalamud) : AutoCommon(dalamud)
+public sealed class AutoGather(NPCInfo npc) : AutoCommon
 {
-    private readonly ICallGateSubscriber<bool> _isRunning = dalamud.GetIpcSubscriber<bool>("Questionable.IsRunning");
-    private readonly ICallGateSubscriber<string, bool> _stop = dalamud.GetIpcSubscriber<string, bool>("Questionable.Stop");
+    private readonly ICallGateSubscriber<bool> _isRunning = Service.PluginInterface.GetIpcSubscriber<bool>("Questionable.IsRunning");
+    private readonly ICallGateSubscriber<string, bool> _stop = Service.PluginInterface.GetIpcSubscriber<string, bool>("Questionable.Stop");
     // uint npcId, uint itemId, byte classJob = ((byte)Job.MIN), int quantity = 1, ushort collectability = 0
-    private readonly ICallGateSubscriber<uint, uint, byte, int, ushort, bool> _startGathering = dalamud.GetIpcSubscriber<uint, uint, byte, int, ushort, bool>("Questionable.StartGatheringComplex");
+    private readonly ICallGateSubscriber<uint, uint, byte, int, ushort, bool> _startGathering = Service.PluginInterface.GetIpcSubscriber<uint, uint, byte, int, ushort, bool>("Questionable.StartGatheringComplex");
     protected override async Task Execute()
     {
         var remainingTurnins = npc.RemainingTurnins(1);
@@ -26,7 +26,7 @@ public sealed class AutoGather(NPCInfo npc, IDalamudPluginInterface dalamud) : A
         await TeleportTo(npc.TerritoryId, npc.CraftData.TurnInLocation);
 
         Status = "Moving to Npc";
-        await MoveTo(npc.CraftData.TurnInLocation, 3);
+        await MoveTo(npc.CraftData.TurnInLocation, MovementConfig.InteractRange);
         Status = $"Turning in {remainingTurnins}x {ItemName(npc.TurnInItems[1])}";
         await TurnIn(npc, 1);
     }

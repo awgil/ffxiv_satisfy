@@ -1,15 +1,15 @@
-﻿using Dalamud.Game.ClientState.Conditions;
-using Dalamud.Plugin;
+﻿using clib.TaskSystem;
+using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Plugin.Ipc;
 using System.Threading.Tasks;
 
 namespace Satisfy;
 
 // execute full crafting delivery: teleport to zone, buy ingredients if needed, craft if needed, turn in
-public sealed class AutoCraft(NPCInfo npc, IDalamudPluginInterface dalamud) : AutoCommon(dalamud)
+public sealed class AutoCraft(NPCInfo npc) : AutoCommon
 {
-    private readonly ICallGateSubscriber<ushort, int, object> _artisanCraft = dalamud.GetIpcSubscriber<ushort, int, object>("Artisan.CraftItem");
-    private readonly ICallGateSubscriber<bool> _artisanInProgress = dalamud.GetIpcSubscriber<bool>("Artisan.GetEnduranceStatus");
+    private readonly ICallGateSubscriber<ushort, int, object> _artisanCraft = Service.PluginInterface.GetIpcSubscriber<ushort, int, object>("Artisan.CraftItem");
+    private readonly ICallGateSubscriber<bool> _artisanInProgress = Service.PluginInterface.GetIpcSubscriber<bool>("Artisan.GetEnduranceStatus");
 
     protected override async Task Execute()
     {
@@ -33,7 +33,7 @@ public sealed class AutoCraft(NPCInfo npc, IDalamudPluginInterface dalamud) : Au
             if (missingIngredients > 0)
             {
                 Status = $"Buying {missingIngredients}x {ItemName(ingredient.id)}";
-                await MoveTo(npc.CraftData.VendorLocation, 3);
+                await MoveTo(npc.CraftData.VendorLocation, MovementConfig.InteractRange);
                 await Dismount();
                 await BuyFromShop(npc.CraftData.VendorInstanceId, npc.CraftData.VendorShopId, ingredient.id, missingIngredients);
             }
@@ -42,7 +42,7 @@ public sealed class AutoCraft(NPCInfo npc, IDalamudPluginInterface dalamud) : Au
         }
 
         Status = $"Turning in {remainingTurnins}x {ItemName(turnInItemId)}";
-        await MoveTo(npc.CraftData.TurnInLocation, 3);
+        await MoveTo(npc.CraftData.TurnInLocation, MovementConfig.InteractRange);
         await TurnIn(npc, 0);
     }
 
