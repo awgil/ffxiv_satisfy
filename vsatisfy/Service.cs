@@ -30,6 +30,7 @@ public class Service
     internal static void Initialize(Plugin plugin, IDalamudPluginInterface dalamud)
     {
         Plugin = plugin;
+        Automation = new();
         dalamud.Create<Service>();
     }
 }
