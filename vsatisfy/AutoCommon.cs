@@ -18,7 +18,8 @@ public abstract class AutoCommon : TaskBase
             await WaitUntilSkipTalk(Game.IsSelectStringAddonActive, "WaitSelect");
             Game.SelectTurnIn();
         }
-        for (int i = 0; i < npc.RemainingTurnins(slot); ++i)
+        var turninsCount = npc.RemainingTurnins(slot);
+        for (int i = 0; i < turninsCount; ++i)
         {
             await WaitUntilSkipTalk(() => Game.IsTurnInSupplyInProgress((uint)npc.Index + 1), "WaitDialog");
             Game.TurnInSupply(slot);
