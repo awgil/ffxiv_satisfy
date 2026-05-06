@@ -219,7 +219,7 @@ public unsafe class MainWindow : Window, IDisposable
         ImGui.TableSetupColumn("NPC", ImGuiTableColumnFlags.WidthFixed, 100);
         ImGui.TableSetupColumn("Bonuses", ImGuiTableColumnFlags.WidthFixed, 90);
         ImGui.TableSetupColumn("Deliveries", ImGuiTableColumnFlags.WidthFixed, 120);
-        ImGui.TableSetupColumn("Achievement", ImGuiTableColumnFlags.WidthFixed, 120);
+        ImGui.TableSetupColumn("Achievement (weeks)", ImGuiTableColumnFlags.WidthFixed, 120);
         ImGui.TableSetupColumn("Actions");
         ImGui.TableHeadersRow();
         foreach (var npc in _npcs)
@@ -244,7 +244,9 @@ public unsafe class MainWindow : Window, IDisposable
 
             ImGui.TableNextColumn();
             if (npc.AchievementMax > 0)
-                ImGui.ProgressBar((float)npc.AchievementCur / npc.AchievementMax, new(120, 0), $"{npc.AchievementCur} / {npc.AchievementMax}");
+                ImGui.ProgressBar((float)npc.AchievementCur / npc.AchievementMax,
+                    new(120, 0),
+                    $"{npc.AchievementCur} / {npc.AchievementMax} ({(npc.AchievementMax - npc.AchievementCur) / 6.0:0.0})");
             else if (npc.AchievementId != 0 && !Plugin.Config.AutoFetchAchievements && ImGui.Button("Fetch...", new(120, 0)))
                 _achi.Request(npc.AchievementId);
 
