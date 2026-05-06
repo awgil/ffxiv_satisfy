@@ -21,9 +21,6 @@ public sealed class AutoCraft(NPCInfo npc) : AutoCommon
         if (npc.CraftData == null)
             throw new Exception("Craft data is not initialized");
 
-        Status = "Teleporting to zone";
-        await MoveTo(npc.TerritoryId, npc.CraftData.VendorLocation, MovementConfig.InteractRange, allowTeleportIfFaster: false, allowAethernetWithinTerritory: false);
-
         var turnInItemId = npc.TurnInItems[0];
         var remainingCrafts = remainingTurnins - Game.NumItemsInInventory(turnInItemId, 1);
         if (remainingCrafts > 0)
@@ -34,7 +31,10 @@ public sealed class AutoCraft(NPCInfo npc) : AutoCommon
             if (missingIngredients > 0)
             {
                 Status = $"Buying {missingIngredients}x {ItemName(ingredient.id)}";
-                await MoveTo(npc.CraftData.VendorLocation, MovementConfig.InteractRange, allowTeleportIfFaster: false, allowAethernet: false);
+                if (Service.ClientState.TerritoryType == npc.TerritoryId)
+                    await MoveTo(npc.CraftData.VendorLocation, MovementConfig.InteractRange, allowTeleportIfFaster: false, allowAethernet: false);
+                else
+                    await MoveTo(npc.TerritoryId, npc.CraftData.VendorLocation, MovementConfig.InteractRange, allowTeleportIfFaster: false, allowAethernetWithinTerritory: false);
                 await Dismount();
                 await BuyFromShop(npc.CraftData.VendorInstanceId, npc.CraftData.VendorShopId, ingredient.id, missingIngredients);
             }
@@ -43,7 +43,10 @@ public sealed class AutoCraft(NPCInfo npc) : AutoCommon
         }
 
         Status = $"Turning in {remainingTurnins}x {ItemName(turnInItemId)}";
-        await MoveTo(npc.CraftData.TurnInLocation, MovementConfig.InteractRange, allowTeleportIfFaster: false, allowAethernet: false);
+        if (Service.ClientState.TerritoryType == npc.TerritoryId)
+            await MoveTo(npc.CraftData.TurnInLocation, MovementConfig.InteractRange, allowTeleportIfFaster: false, allowAethernet: false);
+        else
+            await MoveTo(npc.TerritoryId, npc.CraftData.TurnInLocation, MovementConfig.InteractRange, allowTeleportIfFaster: false, allowAethernetWithinTerritory: false);
         await TurnIn(npc, 0);
     }
 

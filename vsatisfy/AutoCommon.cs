@@ -1,6 +1,6 @@
-﻿using Dalamud.Game.ClientState.Conditions;
-using System.Threading.Tasks;
 using clib.TaskSystem;
+using Dalamud.Game.ClientState.Conditions;
+using System.Threading.Tasks;
 
 namespace Satisfy;
 
@@ -12,23 +12,34 @@ public abstract class AutoCommon : TaskBase
         using var scope = BeginScope("TurnIn");
         if (npc.CraftData is null || npc.RemainingTurnins(slot) is 0) return;
 
-        Status = $"Turning in";
+        Status = "Turning in";
         if (!Game.IsTurnInSupplyInProgress((uint)npc.Index + 1))
         {
             ErrorIf(!Game.InteractWith(npc.CraftData.TurnInInstanceId), "Failed to interact with turn-in NPC");
             await WaitUntilSkipTalk(Game.IsSelectStringAddonActive, "WaitSelect");
             Game.SelectTurnIn();
         }
-        var turninsCount = npc.RemainingTurnins(slot);
-        for (int i = 0; i < turninsCount; ++i)
+        while (npc.RemainingTurnins(slot) > 0)
         {
-            await WaitUntilSkipTalk(() => Game.IsTurnInSupplyInProgress((uint)npc.Index + 1), "WaitDialog");
+            await WaitUntilSkipTalk(() => npc.RemainingTurnins(slot) <= 0 || Game.IsTurnInSupplyInProgress((uint)npc.Index + 1), "WaitDialog");
+            if (npc.RemainingTurnins(slot) <= 0)
+                break;
+
             Game.TurnInSupply(slot);
-            await WaitWhile(() => !Game.IsTurnInRequestInProgress(npc.TurnInItems[slot]), "WaitHandIn");
-            Game.TurnInRequestCommit(slot);
+            await WaitWhile(() => npc.RemainingTurnins(slot) > 0 && !Game.IsTurnInRequestInProgress(npc.TurnInItems[slot]), "WaitHandIn");
+            if (Game.IsTurnInRequestInProgress(npc.TurnInItems[slot]))
+                Game.TurnInRequestCommit(slot);
         }
-        await WaitUntilSkipTalk(() => !Service.Conditions[ConditionFlag.OccupiedInCutSceneEvent], "WaitCutsceneStart");
-        await WaitUntilSkipTalk(() => Service.Conditions[ConditionFlag.OccupiedInCutSceneEvent], "WaitCutsceneEnd");
+
+        await WaitForCutscene();
+    }
+
+    protected async Task WaitForCutscene()
+    {
+        using var scope = BeginScope(nameof(WaitForCutscene));
+        Status = "Wait for CS";
+        await WaitUntilSkipTalk(() => Service.Conditions[ConditionFlag.OccupiedInCutSceneEvent], "WaitCutsceneStart");
+        await WaitUntilSkipTalk(() => !Service.Conditions[ConditionFlag.OccupiedInCutSceneEvent], "WaitCutsceneEnd");
     }
 
     // wait until condition is satisfied, skipping all talks as they appear
