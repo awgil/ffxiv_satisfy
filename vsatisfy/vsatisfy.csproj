@@ -3,23 +3,11 @@
 	<PropertyGroup>
 		<Version>0.0.0.0</Version>
 		<LangVersion>preview</LangVersion>
-		<LocalCS>false</LocalCS>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$([System.Runtime.InteropServices.RuntimeInformation]::IsOSPlatform($([System.Runtime.InteropServices.OSPlatform]::Linux)))'">
 		<DalamudLibPath>$(DALAMUD_HOME)/</DalamudLibPath>
 	</PropertyGroup>
-
-	<PropertyGroup Condition="'$(LocalCS)'=='true'">
-		<DefineConstants>LOCAL_CS</DefineConstants>
-		<Use_Dalamud_FFXIVClientStructs>false</Use_Dalamud_FFXIVClientStructs>
-	</PropertyGroup>
-
-	<ItemGroup Condition="'$(LocalCS)'=='true'">
-		<ProjectReference Include="..\..\FFXIVClientStructs\FFXIVClientStructs\FFXIVClientStructs.csproj" Private="true" />
-		<ProjectReference Include="..\..\FFXIVClientStructs\InteropGenerator.Runtime\InteropGenerator.Runtime.csproj" Private="true" />
-		<ProjectReference Include="..\..\FFXIVClientStructs\InteropGenerator\InteropGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-	</ItemGroup>
 
 	<ItemGroup>
 	  <PackageReference Include="croizat.clib" Version="1.0.4" />
