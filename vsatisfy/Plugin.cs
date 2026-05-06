@@ -1,4 +1,5 @@
-﻿using Dalamud.Interface.Windowing;
+﻿using clib;
+using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 
@@ -17,16 +18,7 @@ public sealed class Plugin : IDalamudPlugin
         if (!dalamud.ConfigDirectory.Exists)
             dalamud.ConfigDirectory.Create();
 
-        //var dalamudRoot = dalamud.GetType().Assembly.
-        //        GetType("Dalamud.Service`1", true)!.MakeGenericType(dalamud.GetType().Assembly.GetType("Dalamud.Dalamud", true)!).
-        //        GetMethod("Get")!.Invoke(null, BindingFlags.Default, null, [], null);
-        //var dalamudStartInfo = dalamudRoot?.GetType().GetProperty("StartInfo", BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(dalamudRoot) as DalamudStartInfo;
-        //var gameVersion = dalamudStartInfo?.GameVersion?.ToString() ?? "unknown";
-        //InteropGenerator.Runtime.Resolver.GetInstance.Setup(sigScanner.SearchBase, gameVersion, new(dalamud.ConfigDirectory.FullName + "/cs.json"));
-        //FFXIVClientStructs.Interop.Generated.Addresses.Register();
-        //InteropGenerator.Runtime.Resolver.GetInstance.Resolve();
-
-        clib.CLibMain.Init(dalamud, this);
+        CLibMain.Init(dalamud, this);
         Service.Initialize(this, dalamud);
 
         Config = new Config();

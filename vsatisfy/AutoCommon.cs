@@ -12,6 +12,7 @@ public abstract class AutoCommon : TaskBase
         using var scope = BeginScope("TurnIn");
         if (npc.CraftData is null || npc.RemainingTurnins(slot) is 0) return;
 
+        Status = $"Turning in";
         if (!Game.IsTurnInSupplyInProgress((uint)npc.Index + 1))
         {
             ErrorIf(!Game.InteractWith(npc.CraftData.TurnInInstanceId), "Failed to interact with turn-in NPC");

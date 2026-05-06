@@ -1,4 +1,5 @@
-﻿using clib.TaskSystem;
+using clib.Extensions;
+using clib.TaskSystem;
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Plugin.Ipc;
 using System.Threading.Tasks;
@@ -21,7 +22,7 @@ public sealed class AutoCraft(NPCInfo npc) : AutoCommon
             throw new Exception("Craft data is not initialized");
 
         Status = "Teleporting to zone";
-        await TeleportTo(npc.TerritoryId, npc.CraftData.VendorLocation);
+        await MoveTo(npc.TerritoryId, npc.CraftData.VendorLocation, MovementConfig.InteractRange, allowTeleportIfFaster: false, allowAethernetWithinTerritory: false);
 
         var turnInItemId = npc.TurnInItems[0];
         var remainingCrafts = remainingTurnins - Game.NumItemsInInventory(turnInItemId, 1);
@@ -33,7 +34,7 @@ public sealed class AutoCraft(NPCInfo npc) : AutoCommon
             if (missingIngredients > 0)
             {
                 Status = $"Buying {missingIngredients}x {ItemName(ingredient.id)}";
-                await MoveTo(npc.CraftData.VendorLocation, MovementConfig.InteractRange);
+                await MoveTo(npc.CraftData.VendorLocation, MovementConfig.InteractRange, allowTeleportIfFaster: false, allowAethernet: false);
                 await Dismount();
                 await BuyFromShop(npc.CraftData.VendorInstanceId, npc.CraftData.VendorShopId, ingredient.id, missingIngredients);
             }
@@ -42,7 +43,7 @@ public sealed class AutoCraft(NPCInfo npc) : AutoCommon
         }
 
         Status = $"Turning in {remainingTurnins}x {ItemName(turnInItemId)}";
-        await MoveTo(npc.CraftData.TurnInLocation, MovementConfig.InteractRange);
+        await MoveTo(npc.CraftData.TurnInLocation, MovementConfig.InteractRange, allowTeleportIfFaster: false, allowAethernet: false);
         await TurnIn(npc, 0);
     }
 
@@ -89,4 +90,5 @@ public sealed class AutoCraft(NPCInfo npc) : AutoCommon
 
     private void ArtisanCraft(ushort recipe, int count) => _artisanCraft.InvokeAction(recipe, count);
     private bool ArtisanInProgress() => _artisanInProgress.InvokeFunc();
+
 }
