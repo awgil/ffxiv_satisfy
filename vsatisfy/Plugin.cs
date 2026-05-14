@@ -2,44 +2,45 @@
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Satisfy;
 
-public sealed class Plugin : IDalamudPlugin
+public sealed class Plugin(IDalamudPluginInterface pluginInterface, ICommandManager cmd) : IAsyncDalamudPlugin
 {
     public static Config Config { get; private set; } = null!;
 
     private readonly WindowSystem WindowSystem = new("vsatisfy");
-    private readonly MainWindow _wndMain;
-    private readonly ICommandManager _cmd;
+    private MainWindow? _wndMain;
 
-    public Plugin(IDalamudPluginInterface dalamud, ICommandManager commandManager)
+    public async Task LoadAsync(CancellationToken cancellationToken)
     {
-        if (!dalamud.ConfigDirectory.Exists)
-            dalamud.ConfigDirectory.Create();
+        if (!pluginInterface.ConfigDirectory.Exists)
+            pluginInterface.ConfigDirectory.Create();
 
-        CLibMain.Init(dalamud, this);
-        Service.Initialize(this, dalamud);
+        CLibMain.Init(pluginInterface, this, CLibModule.Automation);
+        Service.Initialize(this, pluginInterface);
 
         Config = new Config();
-        Config.Load(dalamud.ConfigFile);
-        Config.Modified += () => Config.Save(dalamud.ConfigFile);
+        Config.Load(pluginInterface.ConfigFile);
+        Config.Modified += () => Config.Save(pluginInterface.ConfigFile);
 
-        _wndMain = new(dalamud);
+        _wndMain = new();
         WindowSystem.AddWindow(_wndMain);
 
-        _cmd = commandManager;
-        commandManager.AddHandler("/vsatisfy", new((_, _) => _wndMain.IsOpen ^= true) { HelpMessage = "Toggle main window" });
+        cmd.AddHandler("/vsatisfy", new((_, _) => _wndMain.IsOpen ^= true) { HelpMessage = "Toggle main window" });
 
-        dalamud.UiBuilder.Draw += WindowSystem.Draw;
-        dalamud.UiBuilder.OpenMainUi += () => _wndMain.IsOpen = true;
-        dalamud.UiBuilder.OpenConfigUi += () => _wndMain.IsOpen = true;
+        pluginInterface.UiBuilder.Draw += WindowSystem.Draw;
+        pluginInterface.UiBuilder.OpenMainUi += () => _wndMain.IsOpen = true;
+        pluginInterface.UiBuilder.OpenConfigUi += () => _wndMain.IsOpen = true;
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
-        _cmd.RemoveHandler("/vsatisfy");
+        CLibMain.Dispose();
+        cmd.RemoveHandler("/vsatisfy");
         WindowSystem.RemoveAllWindows();
-        _wndMain.Dispose();
+        _wndMain?.Dispose();
     }
 }

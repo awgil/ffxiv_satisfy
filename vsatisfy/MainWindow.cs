@@ -1,13 +1,13 @@
-﻿using Dalamud.Interface;
+﻿using clib.Services;
+using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
 using Dalamud.Interface.Utility.Raii;
 using Dalamud.Interface.Windowing;
-using Dalamud.Plugin;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.Interop;
-using Dalamud.Bindings.ImGui;
 using Lumina.Excel.Sheets;
 using System.Numerics;
 using System.Runtime.InteropServices;
@@ -16,15 +16,13 @@ namespace Satisfy;
 
 public unsafe class MainWindow : Window, IDisposable
 {
-    private readonly IDalamudPluginInterface _dalamud;
     private readonly Achievements _achi = new();
     private readonly List<NPCInfo> _npcs = [];
     private readonly List<(uint Currency, int Amount, int Count)> _rewards = [];
     private bool _wasLoaded;
 
-    public MainWindow(IDalamudPluginInterface dalamud) : base("Satisfier")
+    public MainWindow() : base("Satisfier")
     {
-        _dalamud = dalamud;
         _achi.AchievementProgress += OnAchievementProgress;
 
         TitleBarButtons.Add(new() { Icon = FontAwesomeIcon.Cog, IconOffset = new(1), Click = _ => ImGui.OpenPopup("###config") });
@@ -63,8 +61,6 @@ public unsafe class MainWindow : Window, IDisposable
 
     public void Dispose()
     {
-        Service.Automation.Dispose();
-
         _achi.AchievementProgress -= OnAchievementProgress;
         _achi.Dispose();
     }
@@ -207,11 +203,11 @@ public unsafe class MainWindow : Window, IDisposable
 
     private void DrawMainTable()
     {
-        using (ImRaii.Disabled(!Service.Automation.Running))
+        using (ImRaii.Disabled(!Svc.Automation.Running))
             if (ImGui.Button("Stop current task"))
-                Service.Automation.Stop();
+                Svc.Automation.Stop();
         ImGui.SameLine();
-        ImGui.TextUnformatted($"Status: {Service.Automation.CurrentTask?.Status ?? "idle"}");
+        ImGui.Text($"Status: {Svc.Automation.CurrentTask?.Status ?? "idle"}");
 
         using var table = ImRaii.Table("main_table", 5);
         if (!table)
@@ -227,7 +223,7 @@ public unsafe class MainWindow : Window, IDisposable
             using var id = ImRaii.PushId(npc.Index);
 
             ImGui.TableNextColumn();
-            ImGui.TextUnformatted($"[{npc.Index}] {npc.Name}");
+            ImGui.Text($"[{npc.Index}] {npc.Name}");
 
             ImGui.TableNextColumn();
             using (ImRaii.Disabled())
@@ -274,17 +270,17 @@ public unsafe class MainWindow : Window, IDisposable
             var gain = reward.Amount * reward.Count;
 
             ImGui.TableNextColumn();
-            ImGui.TextUnformatted($"[{reward.Currency}] {Service.LuminaRow<Item>(currItemId)?.Name}");
+            ImGui.Text($"[{reward.Currency}] {Service.LuminaRow<Item>(currItemId)?.Name}");
 
             ImGui.TableNextColumn();
-            ImGui.TextUnformatted($"{count}");
+            ImGui.Text($"{count}");
 
             ImGui.TableNextColumn();
-            ImGui.TextUnformatted($"{gain}");
+            ImGui.Text($"{gain}");
 
             var overcap = count + gain - max;
             ImGui.TableNextColumn();
-            ImGui.TextUnformatted(overcap > 0 ? overcap.ToString() : "---");
+            ImGui.Text(overcap > 0 ? overcap.ToString() : "---");
         }
     }
 
@@ -300,18 +296,18 @@ public unsafe class MainWindow : Window, IDisposable
         var bonusOverrideRow = inst->BonusGuaranteeRowId != 0xFF ? inst->BonusGuaranteeRowId : calcBonus;
         var bonusOverride = bonusOverrideRow >= 0 ? Service.LuminaRow<SatisfactionBonusGuarantee>((uint)bonusOverrideRow) : null;
 
-        ImGui.TextUnformatted($"Seed: {inst->SupplySeed}, fixed-rng={inst->FixedRandom}");
-        ImGui.TextUnformatted($"Guarantee row: {inst->BonusGuaranteeRowId}, adj={inst->TimeAdjustmentForBonusGuarantee}, calculated={calcBonus}");
+        ImGui.Text($"Seed: {inst->SupplySeed}, fixed-rng={inst->FixedRandom}");
+        ImGui.Text($"Guarantee row: {inst->BonusGuaranteeRowId}, adj={inst->TimeAdjustmentForBonusGuarantee}, calculated={calcBonus}");
         foreach (var npc in _npcs)
         {
             var supplyRows = supplySheet.GetRow(npc.SupplyIndex);
-            ImGui.TextUnformatted($"#{npc.Index}: rank={npc.Rank}, supply={npc.SupplyIndex} ({supplyRows.Count} subrows), satisfaction={npc.SatisfactionCur}/{npc.SatisfactionMax}, usedAllowances={npc.UsedDeliveries}");
-            for (int i = 0; i < npc.Requests.Length; ++i)
+            ImGui.Text($"#{npc.Index}: rank={npc.Rank}, supply={npc.SupplyIndex} ({supplyRows.Count} subrows), satisfaction={npc.SatisfactionCur}/{npc.SatisfactionMax}, usedAllowances={npc.UsedDeliveries}");
+            for (var i = 0; i < npc.Requests.Length; ++i)
             {
                 var item = supplyRows[(int)npc.Requests[i]].Item;
-                ImGui.TextUnformatted($"- {npc.Requests[i]} '{item.Value.Name}'{(npc.IsBonusOverride[i] ? " *****" : "")}");
+                ImGui.Text($"- {npc.Requests[i]} '{item.Value.Name}'{(npc.IsBonusOverride[i] ? " *****" : "")}");
             }
-            string locationString(uint territory, Vector3 pos)
+            static string locationString(uint territory, Vector3 pos)
             {
                 var aetheryte = Map.FindClosestAetheryte(territory, pos);
                 var aetheryteRow = Service.LuminaRow<Aetheryte>(aetheryte)!.Value;
@@ -320,32 +316,32 @@ public unsafe class MainWindow : Window, IDisposable
             }
             if (npc.CraftData != null)
             {
-                ImGui.TextUnformatted($"> buy from {npc.CraftData.VendorInstanceId:X}/{npc.CraftData.VendorShopId} @ {locationString(npc.TerritoryId, npc.CraftData.VendorLocation)}");
-                ImGui.TextUnformatted($"> turnin to {npc.CraftData.TurnInInstanceId:X} @ {locationString(npc.TerritoryId, npc.CraftData.VendorLocation)}");
+                ImGui.Text($"> buy from {npc.CraftData.VendorInstanceId:X}/{npc.CraftData.VendorShopId} @ {locationString(npc.TerritoryId, npc.CraftData.VendorLocation)}");
+                ImGui.Text($"> turnin to {npc.CraftData.TurnInInstanceId:X} @ {locationString(npc.TerritoryId, npc.CraftData.VendorLocation)}");
             }
             if (npc.FishData != null)
             {
                 if (npc.FishData.IsSpearFish)
-                    ImGui.TextUnformatted($"> spearfish from {npc.FishData.FishSpotId} '{Service.LuminaRow<SpearfishingNotebook>(npc.FishData.FishSpotId)?.PlaceName.ValueNullable?.Name}' @ {locationString(npc.FishData.TerritoryTypeId, npc.FishData.Center)}");
+                    ImGui.Text($"> spearfish from {npc.FishData.FishSpotId} '{Service.LuminaRow<SpearfishingNotebook>(npc.FishData.FishSpotId)?.PlaceName.ValueNullable?.Name}' @ {locationString(npc.FishData.TerritoryTypeId, npc.FishData.Center)}");
                 else
-                    ImGui.TextUnformatted($"> fish from {npc.FishData.FishSpotId} '{Service.LuminaRow<FishingSpot>(npc.FishData.FishSpotId)?.PlaceName.ValueNullable?.Name}' @ {locationString(npc.FishData.TerritoryTypeId, npc.FishData.Center)}");
+                    ImGui.Text($"> fish from {npc.FishData.FishSpotId} '{Service.LuminaRow<FishingSpot>(npc.FishData.FishSpotId)?.PlaceName.ValueNullable?.Name}' @ {locationString(npc.FishData.TerritoryTypeId, npc.FishData.Center)}");
             }
         }
-        ImGui.TextUnformatted($"Current NPC: {inst->CurrentNpc}, supply={inst->CurrentSupplyRowId}");
+        ImGui.Text($"Current NPC: {inst->CurrentNpc}, supply={inst->CurrentSupplyRowId}");
 
         var ui = UIState.Instance();
-        ImGui.TextUnformatted($"Player loaded: {ui->PlayerState.IsLoaded}");
-        ImGui.TextUnformatted($"Achievement state: complete={ui->Achievement.State}, progress={ui->Achievement.ProgressRequestState}");
+        ImGui.Text($"Player loaded: {ui->PlayerState.IsLoaded}");
+        ImGui.Text($"Achievement state: complete={ui->Achievement.State}, progress={ui->Achievement.ProgressRequestState}");
 
         var agentSat = AgentSatisfactionSupply.Instance();
         var addonSat = Game.GetFocusedAddonByID(agentSat->AddonId);
-        ImGui.TextUnformatted($"AgentSat: {agentSat->IsAgentActive()}/{(addonSat != null ? addonSat->IsVisible : null)}, id={agentSat->NpcInfo.Id}");
+        ImGui.Text($"AgentSat: {agentSat->IsAgentActive()}/{(addonSat != null ? addonSat->IsVisible : null)}, id={agentSat->NpcInfo.Id}");
 
         var agentReq = AgentNpcTrade.Instance();
-        ImGui.TextUnformatted($"NPCTrade: {ui->NpcTrade.Requests.Count}");
-        for (int i = 0; i < ui->NpcTrade.Requests.Count; ++i)
-            ImGui.TextUnformatted($"[{i}] = {ui->NpcTrade.Requests.Items[i].ItemId} '{ui->NpcTrade.Requests.Items[i].ItemName}'");
-        ImGui.TextUnformatted($"AgentReq: {agentReq->IsAgentActive()}, slot={agentReq->SelectedTurnInSlot}, opt={agentReq->SelectedTurnInSlotItemOptions}");
+        ImGui.Text($"NPCTrade: {ui->NpcTrade.Requests.Count}");
+        for (var i = 0; i < ui->NpcTrade.Requests.Count; ++i)
+            ImGui.Text($"[{i}] = {ui->NpcTrade.Requests.Items[i].ItemId} '{ui->NpcTrade.Requests.Items[i].ItemName}'");
+        ImGui.Text($"AgentReq: {agentReq->IsAgentActive()}, slot={agentReq->SelectedTurnInSlot}, opt={agentReq->SelectedTurnInSlotItemOptions}");
 
         var target = TargetSystem.Instance()->Target;
         if (target != null)
@@ -353,9 +349,9 @@ public unsafe class MainWindow : Window, IDisposable
             Span<nint> ptrs = stackalloc nint[0x20];
             var handlers = (FFXIVClientStructs.FFXIV.Client.Game.Event.EventHandler**)ptrs.GetPointer(0);
             var numHandlers = target->GetEventHandlersImpl(handlers);
-            for (int i = 0; i < numHandlers; ++i)
+            for (var i = 0; i < numHandlers; ++i)
             {
-                ImGui.TextUnformatted($"eh{i}: {handlers[i]->Info.EventId.Id:X}");
+                ImGui.Text($"eh{i}: {handlers[i]->Info.EventId.Id:X}");
             }
         }
     }
@@ -367,13 +363,13 @@ public unsafe class MainWindow : Window, IDisposable
             return;
 
         if (ImGui.Button("Auto craft turnin"))
-            Service.Automation.Start(new AutoCraft(npc));
+            Svc.Automation.Start(new AutoCraft(npc));
         ImGui.SameLine();
         if (ImGui.Button("Auto gather turnin"))
-            Service.Automation.Start(new AutoGather(npc));
+            Svc.Automation.Start(new AutoGather(npc));
         ImGui.SameLine();
         if (ImGui.Button("Auto fish turnin"))
-            Service.Automation.Start(new AutoFish(npc));
+            Svc.Automation.Start(new AutoFish(npc));
     }
 
     private void OnAchievementProgress(uint id, uint current, uint max)
