@@ -54,6 +54,7 @@ public unsafe class MainWindow : Window, IDisposable
         _npcs[8].InitHardcodedData(3173, 816);
         _npcs[9].InitHardcodedData(3361, 956);
         _npcs[10].InitHardcodedData(3602, 1190);
+        _npcs[11].InitHardcodedData(3996, 1185);
 
         if (_npcs.Any(n => n.AchievementId is 0 || n.TerritoryId is 0))
             Service.Log.Warning("Some NPCs are missing hardcoded data. Please report this on GitHub.");
