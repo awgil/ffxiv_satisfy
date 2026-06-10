@@ -10,7 +10,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-	  <PackageReference Include="croizat.clib" Version="1.0.39" />
+	  <PackageReference Include="croizat.clib" Version="1.0.40" />
 	</ItemGroup>
 
 	<ItemGroup>
