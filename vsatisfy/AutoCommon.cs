@@ -13,17 +13,17 @@ public abstract class AutoCommon : TaskBase
         using var scope = BeginScope("TurnIn");
         if (npc.CraftData is null || npc.RemainingTurnins(slot) is 0) return;
 
-        if (!Game.IsTurnInSupplyInProgress((uint)npc.Index + 1))
+        if (!Game.IsTurnInSupplyInProgress(npc.Index + 1))
         {
             if (Service.Objects.TryGetByGameObjectId(npc.CraftData.TurnInInstanceId, out var obj))
-                await InteractWith(obj, waitUntil: () => Game.IsTurnInSupplyInProgress((uint)(npc.Index + 1)), selectStringIndex: 0, skip: UiSkipOptions.Talk);
+                await InteractWith(obj, waitUntil: () => Game.IsTurnInSupplyInProgress(npc.Index + 1), selectStringIndex: 0, skip: UiSkipOptions.Talk);
             else
                 Warning($"Unable to interact with {npc.Name}#{npc.CraftData.TurnInInstanceId}");
         }
         while (npc.RemainingTurnins(slot) > 0)
         {
             Status = "Turning in";
-            await WaitUntilSkipTalk(() => npc.RemainingTurnins(slot) <= 0 || Game.IsTurnInSupplyInProgress((uint)npc.Index + 1), "WaitDialog");
+            await WaitUntilSkipping(() => npc.RemainingTurnins(slot) <= 0 || Game.IsTurnInSupplyInProgress(npc.Index + 1), "WaitDialog", UiSkipOptions.Talk, selectStringIndex: 0);
             if (npc.RemainingTurnins(slot) <= 0)
                 break;
 
@@ -40,24 +40,8 @@ public abstract class AutoCommon : TaskBase
     {
         using var scope = BeginScope(nameof(WaitForCutscene));
         Status = "Wait for CS";
-        await WaitUntilSkipTalk(() => Service.Conditions[ConditionFlag.OccupiedInCutSceneEvent], "WaitCutsceneStart");
-        await WaitUntilSkipTalk(() => !Service.Conditions[ConditionFlag.OccupiedInCutSceneEvent], "WaitCutsceneEnd");
-    }
-
-    // wait until condition is satisfied, skipping all talks as they appear
-    protected async Task WaitUntilSkipTalk(Func<bool> condition, string scopeName)
-    {
-        using var scope = BeginScope(scopeName);
-        while (!condition())
-        {
-            if (Game.IsTalkInProgress())
-            {
-                Log("progressing talk...");
-                Game.ProgressTalk();
-            }
-            Log("waiting...");
-            await NextFrame();
-        }
+        await WaitUntilSkipping(() => Service.Conditions[ConditionFlag.OccupiedInCutSceneEvent], "WaitCutsceneStart", UiSkipOptions.Talk);
+        await WaitUntilSkipping(() => !Service.Conditions[ConditionFlag.OccupiedInCutSceneEvent], "WaitCutsceneEnd", UiSkipOptions.Talk);
     }
 
     protected static string ItemName(uint itemId) => Service.LuminaRow<Lumina.Excel.Sheets.Item>(itemId)?.Name.ToString() ?? itemId.ToString();

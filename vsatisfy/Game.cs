@@ -16,57 +16,6 @@ namespace Satisfy;
 // utilities for interacting with game
 public static unsafe class Game
 {
-    public static bool ExecuteTeleport(uint aetheryteId) => UIState.Instance()->Telepo.Teleport(aetheryteId, 0);
-
-    public static bool InteractWith(ulong instanceId)
-    {
-        var obj = GameObjectManager.Instance()->Objects.GetObjectByGameObjectId(instanceId);
-        if (obj == null)
-            return false;
-        TargetSystem.Instance()->InteractWithObject(obj, false);
-        return true;
-    }
-
-    public static void TeleportToAethernet(uint currentAetheryte, uint destinationAetheryte)
-    {
-        Span<uint> payload = [4, destinationAetheryte];
-        PacketDispatcher.SendEventCompletePacket(0x50000 | currentAetheryte, 0, 0, payload.GetPointer(0), (byte)payload.Length, null);
-    }
-
-    public static void TeleportToFirmament(uint currentAetheryte)
-    {
-        Span<uint> payload = [9];
-        PacketDispatcher.SendEventCompletePacket(0x50000 | currentAetheryte, 0, 0, payload.GetPointer(0), (byte)payload.Length, null);
-    }
-
-    public static GameObject* Player() => GameObjectManager.Instance()->Objects.IndexSorted[0].Value;
-
-    public static Vector3 PlayerPosition()
-    {
-        var player = Player();
-        return player != null ? player->Position : default;
-    }
-
-    public static bool PlayerInRange(Vector3 dest, float dist)
-    {
-        var d = dest - PlayerPosition();
-        return d.X * d.X + d.Z * d.Z <= dist * dist;
-    }
-
-    public static bool PlayerIsBusy() => Service.Conditions[ConditionFlag.BetweenAreas] || Service.Conditions[ConditionFlag.Casting] || ActionManager.Instance()->AnimationLock > 0;
-
-    public static bool UseAction(ActionType type, uint actionId) => ActionManager.Instance()->UseAction(type, actionId);
-
-    public static uint CurrentTerritory() => GameMain.Instance()->CurrentTerritoryTypeId;
-
-    public static (ulong id, Vector3 pos) FindAetheryte(uint id)
-    {
-        foreach (var obj in GameObjectManager.Instance()->Objects.IndexSorted)
-            if (obj.Value != null && obj.Value->ObjectKind == ObjectKind.Aetheryte && obj.Value->BaseId == id)
-                return (obj.Value->GetGameObjectId(), *obj.Value->GetPosition());
-        return (0, default);
-    }
-
     // TODO: collectibility threshold
     public static int NumItemsInInventory(uint itemId, short minCollectibility) => InventoryManager.Instance()->GetInventoryItemCount(itemId, false, false, false, minCollectibility);
 
@@ -82,12 +31,6 @@ public static unsafe class Game
             }
         }
         return null;
-    }
-
-    public static bool IsSelectStringAddonActive()
-    {
-        var addon = RaptureAtkUnitManager.Instance()->GetAddonByName("SelectString");
-        return addon != null && addon->IsVisible && addon->IsReady;
     }
 
     public static bool IsShopOpen(uint shopId = 0)
@@ -241,7 +184,7 @@ public static unsafe class Game
         }
     }
 
-    public static bool IsTurnInSupplyInProgress(uint npcIndex)
+    public static bool IsTurnInSupplyInProgress(int npcIndex)
     {
         var agent = AgentSatisfactionSupply.Instance();
         var addon = GetFocusedAddonByID(agent->AddonId);

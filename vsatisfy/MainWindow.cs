@@ -302,6 +302,7 @@ public unsafe class MainWindow : Window, IDisposable
         {
             var supplyRows = supplySheet.GetRow(npc.SupplyIndex);
             ImGui.Text($"#{npc.Index}: rank={npc.Rank}, supply={npc.SupplyIndex} ({supplyRows.Count} subrows), satisfaction={npc.SatisfactionCur}/{npc.SatisfactionMax}, usedAllowances={npc.UsedDeliveries}");
+            ImGui.Text($"InProgress: {Game.IsTurnInSupplyInProgress(npc.Index)}");
             for (var i = 0; i < npc.Requests.Length; ++i)
             {
                 var item = supplyRows[(int)npc.Requests[i]].Item;
