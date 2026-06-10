@@ -13,17 +13,16 @@ public abstract class AutoCommon : TaskBase
         using var scope = BeginScope("TurnIn");
         if (npc.CraftData is null || npc.RemainingTurnins(slot) is 0) return;
 
-        Status = "Turning in";
         if (!Game.IsTurnInSupplyInProgress((uint)npc.Index + 1))
         {
-            ErrorIf(!Game.InteractWith(npc.CraftData.TurnInInstanceId), "Failed to interact with turn-in NPC");
             if (Service.Objects.TryGetByGameObjectId(npc.CraftData.TurnInInstanceId, out var obj))
-                await InteractWith(obj, selectStringIndex: 0, skip: UiSkipOptions.Talk);
+                await InteractWith(obj, waitUntil: () => Game.IsTurnInSupplyInProgress((uint)(npc.Index + 1)), selectStringIndex: 0, skip: UiSkipOptions.Talk);
             else
                 Warning($"Unable to interact with {npc.Name}#{npc.CraftData.TurnInInstanceId}");
         }
         while (npc.RemainingTurnins(slot) > 0)
         {
+            Status = "Turning in";
             await WaitUntilSkipTalk(() => npc.RemainingTurnins(slot) <= 0 || Game.IsTurnInSupplyInProgress((uint)npc.Index + 1), "WaitDialog");
             if (npc.RemainingTurnins(slot) <= 0)
                 break;
