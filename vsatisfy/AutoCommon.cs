@@ -1,3 +1,4 @@
+using clib.Extensions;
 using clib.TaskSystem;
 using Dalamud.Game.ClientState.Conditions;
 using System.Threading.Tasks;
@@ -16,8 +17,10 @@ public abstract class AutoCommon : TaskBase
         if (!Game.IsTurnInSupplyInProgress((uint)npc.Index + 1))
         {
             ErrorIf(!Game.InteractWith(npc.CraftData.TurnInInstanceId), "Failed to interact with turn-in NPC");
-            await WaitUntilSkipTalk(Game.IsSelectStringAddonActive, "WaitSelect");
-            Game.SelectTurnIn();
+            if (Service.Objects.TryGetByGameObjectId(npc.CraftData.TurnInInstanceId, out var obj))
+                await InteractWith(obj, selectStringIndex: 0, skip: UiSkipOptions.Talk);
+            else
+                Warning($"Unable to interact with {npc.Name}#{npc.CraftData.TurnInInstanceId}");
         }
         while (npc.RemainingTurnins(slot) > 0)
         {

@@ -37,24 +37,23 @@ public unsafe class MainWindow : Window, IDisposable
 
         for (int i = 0; i < inst->SatisfactionRanks.Length; ++i)
         {
-            var npcData = npcSheet.GetRow((uint)(i + 1));
-            if (npcData.Npc.RowId != 0)
-                _npcs.Add(new(i, npcData.Npc.RowId, npcData.Npc.Value.Singular.ToString(), npcData.DeliveriesPerWeek, [.. npcData.SatisfactionNpcParams.Select(p => p.SupplyIndex)]));
+            if (npcSheet.GetRow((uint)(i + 1)) is { Npc.RowId: > 0 } npcData)
+                _npcs.Add(new(npcData));
         }
 
         // hardcoded stuff
-        _npcs[0].InitHardcodedData(1784, 478);
-        _npcs[1].InitHardcodedData(1979, 635);
-        _npcs[2].InitHardcodedData(2077, 613);
-        _npcs[3].InitHardcodedData(2193, 478);
-        _npcs[4].InitHardcodedData(2435, 820);
-        _npcs[5].InitHardcodedData(2633, 886);
-        _npcs[6].InitHardcodedData(2845, 886);
-        _npcs[7].InitHardcodedData(3069, 962);
-        _npcs[8].InitHardcodedData(3173, 816);
-        _npcs[9].InitHardcodedData(3361, 956);
-        _npcs[10].InitHardcodedData(3602, 1190);
-        _npcs[11].InitHardcodedData(3996, 1185);
+        //_npcs[0].InitHardcodedData(1784, 478);
+        //_npcs[1].InitHardcodedData(1979, 635);
+        //_npcs[2].InitHardcodedData(2077, 613);
+        //_npcs[3].InitHardcodedData(2193, 478);
+        //_npcs[4].InitHardcodedData(2435, 820);
+        //_npcs[5].InitHardcodedData(2633, 886);
+        //_npcs[6].InitHardcodedData(2845, 886);
+        //_npcs[7].InitHardcodedData(3069, 962);
+        //_npcs[8].InitHardcodedData(3173, 816);
+        //_npcs[9].InitHardcodedData(3361, 956);
+        //_npcs[10].InitHardcodedData(3602, 1190);
+        //_npcs[11].InitHardcodedData(3996, 1185);
 
         if (_npcs.Any(n => n.AchievementId is 0 || n.TerritoryId is 0))
             Service.Log.Warning("Some NPCs are missing hardcoded data. Please report this on GitHub.");
@@ -327,6 +326,7 @@ public unsafe class MainWindow : Window, IDisposable
                 else
                     ImGui.Text($"> fish from {npc.FishData.FishSpotId} '{Service.LuminaRow<FishingSpot>(npc.FishData.FishSpotId)?.PlaceName.ValueNullable?.Name}' @ {locationString(npc.FishData.TerritoryTypeId, npc.FishData.Center)}");
             }
+            ImGui.Text($"Achievement #{npc.AchievementId}: {npc.AchievementCur}/{npc.AchievementMax} -- {npc.AchievementStart}");
         }
         ImGui.Text($"Current NPC: {inst->CurrentNpc}, supply={inst->CurrentSupplyRowId}");
 

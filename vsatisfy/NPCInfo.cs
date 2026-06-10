@@ -1,11 +1,16 @@
-﻿using FFXIVClientStructs.FFXIV.Client.Game;
+﻿using clib.Extensions;
+using FFXIVClientStructs.FFXIV.Client.Game;
 using Lumina.Excel.Sheets;
 
 namespace Satisfy;
 
-public record class NPCInfo(int Index, uint TurninId, string Name, int MaxDeliveries, int[] SupplyIndices)
+public record class NPCInfo
 {
-    public readonly int[] SupplyIndices = [.. SupplyIndices];
+    public int Index;
+    public uint TurninId;
+    public string Name;
+    public int MaxDeliveries;
+    public readonly int[] SupplyIndices;
     public bool Unlocked;
     public int Rank;
     public int SatisfactionCur;
@@ -24,6 +29,18 @@ public record class NPCInfo(int Index, uint TurninId, string Name, int MaxDelive
     public CraftTurnin? CraftData;
     public FishData? FishData;
     public GatherData? GatherData;
+
+    public NPCInfo(SatisfactionNpc Row)
+    {
+        Index = (int)(Row.RowId - 1);
+        TurninId = Row.Npc.RowId;
+        Name = Row.Npc.Value.Singular.ToString();
+        MaxDeliveries = Row.DeliveriesPerWeek;
+        SupplyIndices = [.. Row.SatisfactionNpcParams.Select(p => p.SupplyIndex)];
+        TerritoryId = Row.Level.Value.Territory.RowId;
+        AchievementId = Row.Achievement.RowId;
+        CraftData = new((uint)SupplyIndices[1], TurninId, TerritoryId);
+    }
 
     public uint SupplyIndex => (uint)SupplyIndices[Rank];
     public uint AchievementCur => Math.Min(AchievementStart + (uint)UsedDeliveries, AchievementMax);
