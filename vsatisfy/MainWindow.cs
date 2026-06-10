@@ -298,11 +298,13 @@ public unsafe class MainWindow : Window, IDisposable
 
         ImGui.Text($"Seed: {inst->SupplySeed}, fixed-rng={inst->FixedRandom}");
         ImGui.Text($"Guarantee row: {inst->BonusGuaranteeRowId}, adj={inst->TimeAdjustmentForBonusGuarantee}, calculated={calcBonus}");
+        ImGui.Separator();
         foreach (var npc in _npcs)
         {
+            ImGui.Text($"{npc.Name}");
             var supplyRows = supplySheet.GetRow(npc.SupplyIndex);
             ImGui.Text($"#{npc.Index}: rank={npc.Rank}, supply={npc.SupplyIndex} ({supplyRows.Count} subrows), satisfaction={npc.SatisfactionCur}/{npc.SatisfactionMax}, usedAllowances={npc.UsedDeliveries}");
-            ImGui.Text($"InProgress: {Game.IsTurnInSupplyInProgress(npc.Index)}");
+            ImGui.Text($"InProgress: {Game.IsTurnInSupplyInProgress(npc)}");
             for (var i = 0; i < npc.Requests.Length; ++i)
             {
                 var item = supplyRows[(int)npc.Requests[i]].Item;
@@ -328,6 +330,7 @@ public unsafe class MainWindow : Window, IDisposable
                     ImGui.Text($"> fish from {npc.FishData.FishSpotId} '{Service.LuminaRow<FishingSpot>(npc.FishData.FishSpotId)?.PlaceName.ValueNullable?.Name}' @ {locationString(npc.FishData.TerritoryTypeId, npc.FishData.Center)}");
             }
             ImGui.Text($"Achievement #{npc.AchievementId}: {npc.AchievementCur}/{npc.AchievementMax} -- {npc.AchievementStart}");
+            ImGui.Separator();
         }
         ImGui.Text($"Current NPC: {inst->CurrentNpc}, supply={inst->CurrentSupplyRowId}");
 

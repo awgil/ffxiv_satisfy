@@ -184,11 +184,11 @@ public static unsafe class Game
         }
     }
 
-    public static bool IsTurnInSupplyInProgress(int npcIndex)
+    public static bool IsTurnInSupplyInProgress(NPCInfo npc)
     {
         var agent = AgentSatisfactionSupply.Instance();
         var addon = GetFocusedAddonByID(agent->AddonId);
-        return agent->IsAgentActive() && agent->NpcInfo.Id == npcIndex && agent->NpcInfo.Valid && agent->NpcInfo.Initialized && addon != null && addon->IsVisible;
+        return agent->IsAgentActive() && agent->NpcInfo.Id == npc.Index + 1 && agent->NpcInfo.Valid && agent->NpcInfo.Initialized && addon != null && addon->IsVisible;
     }
 
     public static void TurnInSupply(int slot)

@@ -7,7 +7,7 @@ public unsafe class Achievements : IDisposable
 {
     public event Action<uint, uint, uint>? AchievementProgress;
 
-    private Hook<Achievement.Delegates.ReceiveAchievementProgress> _hook;
+    private readonly Hook<Achievement.Delegates.ReceiveAchievementProgress> _hook;
 
     public Achievements()
     {
