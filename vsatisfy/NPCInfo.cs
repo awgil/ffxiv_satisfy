@@ -11,7 +11,6 @@ public record class NPCInfo
     public string Name;
     public int MaxDeliveries;
     public readonly int[] SupplyIndices;
-    public bool Unlocked;
     public int Rank;
     public int SatisfactionCur;
     public int SatisfactionMax;
@@ -44,7 +43,7 @@ public record class NPCInfo
 
     public uint SupplyIndex => (uint)SupplyIndices[Rank];
     public uint AchievementCur => Math.Min(AchievementStart + (uint)UsedDeliveries, AchievementMax);
-    public bool IsUnlocked => Service.LuminaRow<SatisfactionNpc>((uint)Index) is { QuestRequired.RowId: var questId } && QuestManager.IsQuestComplete(questId);
+    public bool IsUnlocked => Service.LuminaRow<SatisfactionNpc>((uint)Index + 1) is { QuestRequired.RowId: var questId } && QuestManager.IsQuestComplete(questId);
 
     public void InitHardcodedData(uint achievementId, uint territoryId)
     {
