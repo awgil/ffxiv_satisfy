@@ -14,6 +14,7 @@ public sealed class Config
     public bool AutoFetchAchievements = true;
     public bool AutoShowIfIncomplete = true;
     public bool ShowDebugUI = false;
+    public bool HideLocked = false;
     public JobChoice CraftJobType = JobChoice.Specific;
     public uint SelectedCraftJob = 8;
     public uint SelectedGatherJob = 16;
@@ -40,6 +41,8 @@ public sealed class Config
         if (ImGui.Checkbox("Automatically open window on login if deliveries aren't complete", ref AutoShowIfIncomplete))
             NotifyModified();
         if (ImGui.Checkbox("Show debug UI", ref ShowDebugUI))
+            NotifyModified();
+        if (ImGui.Checkbox("Hide unavailable/locked delivery NPCs", ref HideLocked))
             NotifyModified();
         if (ImGuiUtils.Enum("Job choice", ref CraftJobType))
             NotifyModified();

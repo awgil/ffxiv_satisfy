@@ -116,8 +116,6 @@ public unsafe class MainWindow : Window, IDisposable
         foreach (var npc in _npcs)
         {
             var sheetIndex = (byte)(npc.Index + 1);
-            if (Service.LuminaRow<SatisfactionNpc>((uint)npc.Index) is { QuestRequired.RowId: var questId })
-                npc.Unlocked = QuestManager.IsQuestComplete(questId);
             npc.Rank = inst->SatisfactionRanks[npc.Index];
             npc.SatisfactionCur = inst->Satisfaction[npc.Index];
             npc.SatisfactionMax = Service.LuminaRow<SatisfactionNpc>(sheetIndex)!.Value.SatisfactionNpcParams[npc.Rank].SatisfactionRequired;
@@ -220,6 +218,8 @@ public unsafe class MainWindow : Window, IDisposable
         ImGui.TableHeadersRow();
         foreach (var npc in _npcs)
         {
+            if (!npc.IsUnlocked && Plugin.Config.HideLocked)
+                continue;
             using var id = ImRaii.PushId(npc.Index);
 
             ImGui.TableNextColumn();
@@ -304,7 +304,7 @@ public unsafe class MainWindow : Window, IDisposable
             ImGui.Text($"{npc.Name}");
             var supplyRows = supplySheet.GetRow(npc.SupplyIndex);
             ImGui.Text($"#{npc.Index}: rank={npc.Rank}, supply={npc.SupplyIndex} ({supplyRows.Count} subrows), satisfaction={npc.SatisfactionCur}/{npc.SatisfactionMax}, usedAllowances={npc.UsedDeliveries}");
-            ImGui.Text($"InProgress: {Game.IsTurnInSupplyInProgress(npc)}");
+            ImGui.Text($"InProgress: {Game.IsTurnInSupplyInProgress(npc)}, Unlocked: {npc.IsUnlocked}");
             for (var i = 0; i < npc.Requests.Length; ++i)
             {
                 var item = supplyRows[(int)npc.Requests[i]].Item;
