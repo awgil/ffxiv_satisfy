@@ -6,22 +6,16 @@ namespace Satisfy;
 
 public sealed class AutoGather(NPCInfo npc) : AutoCommon
 {
-    // Gather n Chill API 3 job states and start results
     private const int GatherChillApiVersion = 3;
     private const int GatherChillOverlayApiVersion = 4;
     private const int JobStarted = 0;
     private const int JobRunning = 1, JobStopping = 2, JobSucceeded = 3;
-    // a low-quality collectable still counts as gathered for Gather n Chill, so retry for whatever is still missing
     private const int MaxGatherAttempts = 3;
 
     private readonly ICallGateSubscriber<int> _gatherChillApiVersion = Service.PluginInterface.GetIpcSubscriber<int>("GatherChill.ApiVersion");
-    // string owner, uint itemId, int amount -> (result, jobId, message)
     private readonly ICallGateSubscriber<string, uint, int, (int Result, Guid JobId, string Message)> _gatherChillStartJob = Service.PluginInterface.GetIpcSubscriber<string, uint, int, (int, Guid, string)>("GatherChill.StartJob");
-    // Guid jobId -> (state, gathered, wanted, message)
     private readonly ICallGateSubscriber<Guid, (int State, int Gathered, int Wanted, string Message)> _gatherChillGetJob = Service.PluginInterface.GetIpcSubscriber<Guid, (int, int, int, string)>("GatherChill.GetJob");
-    // string owner, Guid jobId
     private readonly ICallGateSubscriber<string, Guid, bool> _gatherChillCancelJob = Service.PluginInterface.GetIpcSubscriber<string, Guid, bool>("GatherChill.CancelJob");
-    // API 4+, optional: shows what is being gathered
     private readonly ICallGateSubscriber<object> _gatherChillOpenOverlay = Service.PluginInterface.GetIpcSubscriber<object>("GatherChill.OpenOverlay");
 
     private static string Owner => Service.PluginInterface.Manifest.InternalName;
@@ -62,7 +56,7 @@ public sealed class AutoGather(NPCInfo npc) : AutoCommon
 
         var (result, jobId, startMessage) = _gatherChillStartJob.InvokeFunc(Owner, itemId, amount);
         ErrorIf(result != JobStarted, $"Gather n Chill can't gather {ItemName(itemId)}: {startMessage}");
-        using var cancel = new OnDispose(() => _gatherChillCancelJob.InvokeFunc(Owner, jobId)); // no-op once the job has ended
+        using var cancel = new OnDispose(() => _gatherChillCancelJob.InvokeFunc(Owner, jobId));
         if (api >= GatherChillOverlayApiVersion)
             _gatherChillOpenOverlay.InvokeAction();
 
