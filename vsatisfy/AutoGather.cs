@@ -8,6 +8,7 @@ public sealed class AutoGather(NPCInfo npc) : AutoCommon
 {
     // Gather n Chill API 3 job states and start results
     private const int GatherChillApiVersion = 3;
+    private const int GatherChillOverlayApiVersion = 4;
     private const int JobStarted = 0;
     private const int JobRunning = 1, JobStopping = 2, JobSucceeded = 3;
     // a low-quality collectable still counts as gathered for Gather n Chill, so retry for whatever is still missing
@@ -20,6 +21,8 @@ public sealed class AutoGather(NPCInfo npc) : AutoCommon
     private readonly ICallGateSubscriber<Guid, (int State, int Gathered, int Wanted, string Message)> _gatherChillGetJob = Service.PluginInterface.GetIpcSubscriber<Guid, (int, int, int, string)>("GatherChill.GetJob");
     // string owner, Guid jobId
     private readonly ICallGateSubscriber<string, Guid, bool> _gatherChillCancelJob = Service.PluginInterface.GetIpcSubscriber<string, Guid, bool>("GatherChill.CancelJob");
+    // API 4+, optional: shows what is being gathered
+    private readonly ICallGateSubscriber<object> _gatherChillOpenOverlay = Service.PluginInterface.GetIpcSubscriber<object>("GatherChill.OpenOverlay");
 
     private static string Owner => Service.PluginInterface.Manifest.InternalName;
 
@@ -54,16 +57,17 @@ public sealed class AutoGather(NPCInfo npc) : AutoCommon
     {
         Status = "Gathering with Gather n Chill";
         using var scope = BeginScope("Gathering");
-        ErrorIf(!GatherChillAvailable(), $"Gather n Chill (API {GatherChillApiVersion} or newer) is not installed");
+        var api = _gatherChillApiVersion.HasFunction ? _gatherChillApiVersion.InvokeFunc() : 0;
+        ErrorIf(api < GatherChillApiVersion, $"Gather n Chill (API {GatherChillApiVersion} or newer) is not installed");
 
         var (result, jobId, startMessage) = _gatherChillStartJob.InvokeFunc(Owner, itemId, amount);
         ErrorIf(result != JobStarted, $"Gather n Chill can't gather {ItemName(itemId)}: {startMessage}");
         using var cancel = new OnDispose(() => _gatherChillCancelJob.InvokeFunc(Owner, jobId)); // no-op once the job has ended
+        if (api >= GatherChillOverlayApiVersion)
+            _gatherChillOpenOverlay.InvokeAction();
 
         var job = _gatherChillGetJob.InvokeFunc(jobId);
         await WaitWhile(() => (job = _gatherChillGetJob.InvokeFunc(jobId)).State is JobRunning or JobStopping, "Waiting for gathering to finish");
         ErrorIf(job.State != JobSucceeded, $"Gather n Chill stopped gathering {ItemName(itemId)}: {job.Message}");
     }
-
-    private bool GatherChillAvailable() => _gatherChillApiVersion.HasFunction && _gatherChillApiVersion.InvokeFunc() >= GatherChillApiVersion;
 }
