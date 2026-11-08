@@ -4,12 +4,10 @@ using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.Event;
 using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
-using FFXIVClientStructs.FFXIV.Client.Network;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using FFXIVClientStructs.Interop;
-using System.Numerics;
 
 namespace Satisfy;
 
@@ -187,8 +185,26 @@ public static unsafe class Game
     public static bool IsTurnInSupplyInProgress(NPCInfo npc)
     {
         var agent = AgentSatisfactionSupply.Instance();
-        var addon = GetFocusedAddonByID(agent->AddonId);
-        return agent->IsAgentActive() && agent->NpcInfo.Id == npc.Index + 1 && agent->NpcInfo.Valid && agent->NpcInfo.Initialized && addon != null && addon->IsVisible;
+        if (!agent->IsAgentActive() || agent->NpcInfo.Id != npc.Index + 1 || !agent->NpcInfo.Valid || !agent->NpcInfo.Initialized)
+            return false;
+        if (GetFocusedAddonByID(agent->AddonId) is var focused && focused != null && focused->IsVisible)
+            return true;
+        var addon = AtkStage.Instance()->RaptureAtkUnitManager->GetAddonById((ushort)agent->AddonId);
+        return addon != null && addon->IsVisible && addon->IsReady && !IsTurnInSupplyBlocked();
+    }
+
+    private static bool IsTurnInSupplyBlocked()
+    {
+        if (Service.Conditions[ConditionFlag.OccupiedInCutSceneEvent] || AgentNpcTrade.Instance()->IsAgentActive())
+            return true;
+        var manager = AtkStage.Instance()->RaptureAtkUnitManager;
+        foreach (var name in (ReadOnlySpan<string>)["Talk", "Request", "SelectString", "SelectYesno"])
+        {
+            var blocker = manager->GetAddonByName(name);
+            if (blocker != null && blocker->IsVisible)
+                return true;
+        }
+        return false;
     }
 
     public static void TurnInSupply(int slot)
@@ -201,53 +217,85 @@ public static unsafe class Game
         agent->ReceiveEvent(&res, values.GetPointer(0), 2, 0);
     }
 
-    public static bool IsTurnInRequestInProgress(uint itemId)
+    public static bool IsTurnInSupplyVisible()
     {
-        var ui = UIState.Instance();
-        var agent = AgentNpcTrade.Instance();
-        return agent->IsAgentActive() && ui->NpcTrade.Requests.Count == 1 && ui->NpcTrade.Requests.Items[0].ItemId == itemId;
+        var agent = AgentSatisfactionSupply.Instance();
+        if (!agent->IsAgentActive())
+            return false;
+        var addon = RaptureAtkUnitManager.Instance()->GetAddonById((ushort)agent->AddonId);
+        return addon != null && addon->IsVisible;
     }
 
-    public static void TurnInRequestCommit(int slot)
+    public static void CloseTurnInSupply()
+    {
+        var addon = RaptureAtkUnitManager.Instance()->GetAddonById((ushort)AgentSatisfactionSupply.Instance()->AddonId);
+        if (addon != null && addon->IsVisible)
+            addon->Close(false);
+    }
+
+    public static bool IsTurnInRequestActive() => AgentNpcTrade.Instance()->IsAgentActive();
+
+    public static int TurnInRequestIndex(uint itemId)
+    {
+        if (!IsTurnInRequestActive())
+            return -1;
+        ref var requests = ref UIState.Instance()->NpcTrade.Requests;
+        for (var i = 0; i < requests.Count; ++i)
+            if (requests.Items[i].ItemId == itemId)
+                return i;
+        return -1;
+    }
+
+    public static bool IsTurnInRequestSelecting()
+    {
+        if (AgentNpcTrade.Instance()->SelectedTurnInSlot >= 0)
+            return true;
+        var menu = RaptureAtkUnitManager.Instance()->GetAddonByName("ContextIconMenu");
+        return menu != null && menu->IsVisible;
+    }
+
+    public static bool IsTurnInRequestReadyToHandOver()
+    {
+        var addon = (AddonRequest*)RaptureAtkUnitManager.Instance()->GetAddonByName("Request");
+        return addon != null && addon->AtkUnitBase.IsVisible && addon->AtkUnitBase.IsReady && addon->HandOverButton != null && addon->HandOverButton->IsEnabled;
+    }
+
+    public static bool FillTurnInRequest(int index)
     {
         var agent = AgentNpcTrade.Instance();
-        if (!agent->IsAgentActive())
-        {
-            Service.Log.Error("Agent not active...");
-            return;
-        }
-
-        if (agent->SelectedTurnInSlot >= 0)
-        {
-            Service.Log.Error($"Turn-in already in progress for slot {agent->SelectedTurnInSlot}");
-            return;
-        }
+        if (!agent->IsAgentActive() || agent->SelectedTurnInSlot >= 0)
+            return false;
 
         var res = new AtkValue();
         Span<AtkValue> param = stackalloc AtkValue[4];
         param[0].SetInt(2); // start turnin
-        param[1].SetInt(slot); // slot
+        param[1].SetInt(index); // slot
         param[2].SetInt(0); // ???
         param[3].SetInt(0); // ???
         agent->ReceiveEvent(&res, param.GetPointer(0), 4, 0);
 
-        if (agent->SelectedTurnInSlot != slot || agent->SelectedTurnInSlotItemOptions <= 0)
+        if (agent->SelectedTurnInSlot != index || agent->SelectedTurnInSlotItemOptions <= 0)
         {
-            Service.Log.Error($"Failed to start turn-in: cur slot={agent->SelectedTurnInSlot}, expected={slot}, count={agent->SelectedTurnInSlotItemOptions}");
-            return;
+            Service.Log.Error($"Failed to start turn-in: cur slot={agent->SelectedTurnInSlot}, expected={index}, count={agent->SelectedTurnInSlotItemOptions}");
+            return false;
         }
 
         param[0].SetInt(0); // confirm
         param[1].SetInt(0); // option #0
         agent->ReceiveEvent(&res, param.GetPointer(0), 4, 1);
+        return agent->SelectedTurnInSlot < 0;
+    }
 
-        if (agent->SelectedTurnInSlot >= 0)
-        {
-            Service.Log.Error($"Turn-in not confirmed: cur slot={agent->SelectedTurnInSlot}");
+    public static void HandOverTurnInRequest()
+    {
+        var agent = AgentNpcTrade.Instance();
+        if (!agent->IsAgentActive())
             return;
-        }
 
-        // commit
+        var res = new AtkValue();
+        Span<AtkValue> param = stackalloc AtkValue[4];
+        foreach (ref var p in param)
+            p.SetInt(0);
         var addonId = agent->AddonId;
         agent->ReceiveEvent(&res, param.GetPointer(0), 4, 0);
         var addon = RaptureAtkUnitManager.Instance()->GetAddonById((ushort)addonId);

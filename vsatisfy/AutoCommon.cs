@@ -1,6 +1,8 @@
 using clib.Extensions;
 using clib.TaskSystem;
 using Dalamud.Game.ClientState.Conditions;
+using FFXIVClientStructs.FFXIV.Client.UI;
+using FFXIVClientStructs.FFXIV.Component.GUI;
 using System.Threading.Tasks;
 
 namespace Satisfy;
@@ -8,41 +10,128 @@ namespace Satisfy;
 // common automation utilities
 public abstract class AutoCommon : TaskBase
 {
+    private enum TurnInState
+    {
+        Talk,
+        YesNo,
+        RequestFill, // waiting for item
+        RequestHandOver, // waiting for hand over
+        RequestWait, // busy
+        SupplyMenu, // need to deliver
+        NpcMenu, // npc selectstring
+        CloseMenu, // close selectstring
+        CloseSupply,
+        Busy,
+        Idle, // nothing open, deliveries left
+        Finished,
+    }
+
+    private const int MaxAttempts = 3;
+
     protected async Task TurnIn(NPCInfo npc, int slot)
     {
         using var scope = BeginScope("TurnIn");
         if (npc.CraftData is null || npc.RemainingTurnins(slot) is 0) return;
 
-        if (!Game.IsTurnInSupplyInProgress(npc))
+        var itemId = npc.TurnInItems[slot];
+        TurnInState? state = null;
+        var acted = false;
+        var remaining = npc.RemainingTurnins(slot);
+        var interacts = 0;
+        while (true)
         {
-            if (Service.Objects.TryGetByGameObjectId(npc.CraftData.TurnInInstanceId, out var obj))
-                await InteractWith(obj, waitUntil: () => Game.IsTurnInSupplyInProgress(npc), selectStringIndex: 0, skip: UiSkipOptions.Talk);
-            else
-                Warning($"Unable to interact with {npc.Name}#{npc.CraftData.TurnInInstanceId}");
-        }
-        ErrorIf(!Game.IsTurnInSupplyInProgress(npc), "");
-        while (npc.RemainingTurnins(slot) > 0)
-        {
-            Status = "Turning in";
-            await WaitUntilSkipping(() => npc.RemainingTurnins(slot) <= 0 || Game.IsTurnInSupplyInProgress(npc), "WaitDialog", UiSkipOptions.Talk);
-            if (npc.RemainingTurnins(slot) <= 0)
+            var curRemaining = npc.RemainingTurnins(slot);
+            if (curRemaining != remaining)
+            {
+                remaining = curRemaining;
+                interacts = 0;
+            }
+
+            var next = GetTurnInState(npc, itemId, remaining);
+            if (next != state)
+            {
+                Log($"turn-in state: {state} -> {next} ({remaining} left)");
+                state = next;
+                acted = false;
+            }
+            if (next == TurnInState.Finished)
                 break;
 
-            Game.TurnInSupply(slot);
-            await WaitWhile(() => npc.RemainingTurnins(slot) > 0 && !Game.IsTurnInRequestInProgress(npc.TurnInItems[slot]), "WaitHandIn");
-            if (Game.IsTurnInRequestInProgress(npc.TurnInItems[slot]))
-                Game.TurnInRequestCommit(slot);
+            Status = $"Turning in {ItemName(itemId)} ({remaining} left): {next}";
+            switch (next)
+            {
+                case TurnInState.Talk:
+                    AddonTalk.Progress();
+                    break;
+                case TurnInState.YesNo:
+                    AddonSelectYesno.Yes();
+                    break;
+                case TurnInState.NpcMenu:
+                    AddonSelectString.Select(0);
+                    break;
+                case TurnInState.CloseMenu:
+                    AtkUnitBase.CloseAddon("SelectString");
+                    break;
+                case TurnInState.RequestFill when !acted:
+                    acted = true;
+                    Game.FillTurnInRequest(Game.TurnInRequestIndex(itemId));
+                    break;
+                case TurnInState.RequestHandOver when !acted:
+                    acted = true;
+                    Game.HandOverTurnInRequest();
+                    break;
+                case TurnInState.SupplyMenu when !acted:
+                    acted = true;
+                    Game.TurnInSupply(slot);
+                    break;
+                case TurnInState.CloseSupply when !acted:
+                    acted = true;
+                    Game.CloseTurnInSupply();
+                    break;
+                case TurnInState.Idle when !acted:
+                    acted = true;
+                    ErrorIf(++interacts > MaxAttempts, $"Talked to {npc.Name} {MaxAttempts} times without delivering anything");
+                    ErrorIf(!Service.Objects.TryGetByGameObjectId(npc.CraftData.TurnInInstanceId, out var obj), $"Unable to find {npc.Name}#{npc.CraftData.TurnInInstanceId:X}");
+                    await InteractWith(obj!);
+                    break;
+            }
+            await NextFrame();
         }
-
-        await WaitForCutscene();
     }
 
-    protected async Task WaitForCutscene()
+    private static TurnInState GetTurnInState(NPCInfo npc, uint itemId, int remaining)
     {
-        using var scope = BeginScope(nameof(WaitForCutscene));
-        Status = "Wait for CS";
-        await WaitUntilSkipping(() => Service.Conditions[ConditionFlag.OccupiedInCutSceneEvent], "WaitCutsceneStart", UiSkipOptions.Talk);
-        await WaitUntilSkipping(() => !Service.Conditions[ConditionFlag.OccupiedInCutSceneEvent], "WaitCutsceneEnd", UiSkipOptions.Talk);
+        if (AtkUnitBase.IsAddonReady("Talk"))
+            return TurnInState.Talk;
+        if (AtkUnitBase.IsAddonReady("SelectYesno"))
+            return TurnInState.YesNo;
+        if (Game.IsTurnInRequestActive())
+        {
+            if (Game.TurnInRequestIndex(itemId) < 0 || Game.IsTurnInRequestSelecting())
+                return TurnInState.RequestWait;
+            if (Game.IsTurnInRequestReadyToHandOver())
+                return TurnInState.RequestHandOver;
+            return AtkUnitBase.IsAddonReady("Request") ? TurnInState.RequestFill : TurnInState.RequestWait;
+        }
+
+        var cutscene = Service.Conditions[ConditionFlag.OccupiedInCutSceneEvent];
+        var occupied = cutscene || Service.Conditions[ConditionFlag.OccupiedInEvent] || Service.Conditions[ConditionFlag.OccupiedInQuestEvent] || Service.Conditions[ConditionFlag.Occupied];
+        if (remaining > 0)
+        {
+            if (Game.IsTurnInSupplyInProgress(npc))
+                return TurnInState.SupplyMenu;
+            if (AtkUnitBase.IsAddonReady("SelectString"))
+                return TurnInState.NpcMenu;
+            return occupied ? TurnInState.Busy : TurnInState.Idle;
+        }
+
+        if (AtkUnitBase.IsAddonReady("SelectString"))
+            return TurnInState.CloseMenu;
+        if (cutscene)
+            return TurnInState.Busy;
+        if (Game.IsTurnInSupplyVisible())
+            return TurnInState.CloseSupply;
+        return occupied ? TurnInState.Busy : TurnInState.Finished;
     }
 
     protected static string ItemName(uint itemId) => Service.LuminaRow<Lumina.Excel.Sheets.Item>(itemId)?.Name.ToString() ?? itemId.ToString();
