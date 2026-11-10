@@ -265,8 +265,10 @@ public static unsafe class Game
     public static bool IsTurnInRequestReadyToHandOver(int index)
     {
         var addon = (AddonRequest*)RaptureAtkUnitManager.Instance()->GetAddonByName("Request");
-        return addon != null && addon->AtkUnitBase.IsVisible && addon->AtkUnitBase.IsReady && addon->HandOverButton != null && addon->HandOverButton->IsEnabled && TurnInRequestSlotIcon(addon, index) != 0;
+        return addon != null && addon->AtkUnitBase.IsVisible && addon->AtkUnitBase.IsReady && addon->HandOverButton != null && addon->HandOverButton->IsEnabled && IsTurnInRequestSlotFilled(addon, index);
     }
+
+    private static bool IsTurnInRequestSlotFilled(AddonRequest* addon, int index) => TurnInRequestSlotIcon(addon, index) is not (0 or uint.MaxValue); // empty is -1
 
     public static string GetAgentLog()
     {
