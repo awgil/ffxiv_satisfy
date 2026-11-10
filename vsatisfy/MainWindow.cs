@@ -20,11 +20,12 @@ public unsafe class MainWindow : Window, IDisposable
     private readonly Achievements _achi = new();
     private readonly List<NPCInfo> _npcs = [];
     private readonly List<(uint Currency, int Amount, int Count)> _rewards = [];
-    private bool _wasLoaded;
 
     public MainWindow() : base("Satisfier")
     {
         _achi.AchievementProgress += OnAchievementProgress;
+        Service.ClientState.Login += OnLogin;
+        Service.ClientState.Logout += OnLogout;
 
         TitleBarButtons.Add(new() { Icon = FontAwesomeIcon.Cog, IconOffset = new(1), Click = _ => ImGui.OpenPopup("###config") });
 
@@ -62,33 +63,26 @@ public unsafe class MainWindow : Window, IDisposable
 
     public void Dispose()
     {
+        Service.ClientState.Login -= OnLogin;
+        Service.ClientState.Logout -= OnLogout;
         _achi.AchievementProgress -= OnAchievementProgress;
         _achi.Dispose();
     }
 
-    public override void PreOpenCheck()
-    {
-        var isLoaded = UIState.Instance()->PlayerState.IsLoaded && Service.Objects.LocalPlayer != null;
-        if (_wasLoaded == isLoaded)
-            return;
+    private void OnLogin()
+        => IsOpen = Plugin.Config.AutoShowIfIncomplete && SatisfactionSupplyManager.Instance()->GetRemainingAllowances() > 0 && _npcs.Any(n => n.IsUnlocked);
 
-        if (isLoaded)
-        {
-            IsOpen = Plugin.Config.AutoShowIfIncomplete && SatisfactionSupplyManager.Instance()->GetRemainingAllowances() > 0 && _npcs.Any(n => n.IsUnlocked);
-        }
-        else
-        {
-            foreach (var npc in _npcs)
-                npc.AchievementStart = npc.AchievementMax = 0;
-            IsOpen = false;
-        }
-        _wasLoaded = isLoaded;
+    private void OnLogout(int type, int code)
+    {
+        foreach (var npc in _npcs)
+            npc.AchievementStart = npc.AchievementMax = 0;
+        IsOpen = false;
     }
 
     public override void Draw()
     {
         DrawConfig();
-        if (_wasLoaded)
+        if (UIState.Instance()->PlayerState.IsLoaded)
         {
             UpdateData();
             DrawMainTable();
