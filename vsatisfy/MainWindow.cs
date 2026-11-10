@@ -67,7 +67,7 @@ public unsafe class MainWindow : Window, IDisposable
 
     public override void PreOpenCheck()
     {
-        var isLoaded = UIState.Instance()->PlayerState.IsLoaded;
+        var isLoaded = UIState.Instance()->PlayerState.IsLoaded && Service.Objects.LocalPlayer != null;
         if (_wasLoaded == isLoaded)
             return;
 
