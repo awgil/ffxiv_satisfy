@@ -230,7 +230,7 @@ public static unsafe class Game
     {
         var addon = RaptureAtkUnitManager.Instance()->GetAddonById((ushort)AgentSatisfactionSupply.Instance()->AddonId);
         if (addon != null && addon->IsVisible)
-            addon->Close(false);
+            addon->Close(true);
     }
 
     public static bool IsTurnInRequestActive() => AgentNpcTrade.Instance()->IsAgentActive();
@@ -300,7 +300,7 @@ public static unsafe class Game
         agent->ReceiveEvent(&res, param.GetPointer(0), 4, 0);
         var addon = RaptureAtkUnitManager.Instance()->GetAddonById((ushort)addonId);
         if (addon != null && addon->IsVisible)
-            addon->Close(false);
+            addon->Close(true);
     }
 
     public static bool IsTerritoryLoaded() => GameMain.Instance()->TerritoryLoadState == 2;
