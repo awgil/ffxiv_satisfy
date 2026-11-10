@@ -1,4 +1,4 @@
-﻿using clib.Services;
+using clib.Services;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface;
 using Dalamud.Interface.Utility.Raii;
@@ -6,6 +6,7 @@ using Dalamud.Interface.Windowing;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
+using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.Interop;
 using Lumina.Excel.Sheets;
@@ -240,9 +241,7 @@ public unsafe class MainWindow : Window, IDisposable
 
             ImGui.TableNextColumn();
             if (npc.AchievementMax > 0)
-                ImGui.ProgressBar((float)npc.AchievementCur / npc.AchievementMax,
-                    new(120, 0),
-                    $"{npc.AchievementCur} / {npc.AchievementMax} ({(npc.AchievementMax - npc.AchievementCur) / 6.0:0.0})");
+                ImGui.ProgressBar((float)npc.AchievementCur / npc.AchievementMax, new(120, 0), $"{npc.AchievementCur} / {npc.AchievementMax} ({(npc.AchievementMax - npc.AchievementCur) / 6.0:0.0})");
             else if (npc.AchievementId != 0 && !Plugin.Config.AutoFetchAchievements && ImGui.Button("Fetch...", new(120, 0)))
                 _achi.Request(npc.AchievementId);
 
@@ -304,7 +303,7 @@ public unsafe class MainWindow : Window, IDisposable
             ImGui.Text($"{npc.Name}");
             var supplyRows = supplySheet.GetRow(npc.SupplyIndex);
             ImGui.Text($"#{npc.Index}: rank={npc.Rank}, supply={npc.SupplyIndex} ({supplyRows.Count} subrows), satisfaction={npc.SatisfactionCur}/{npc.SatisfactionMax}, usedAllowances={npc.UsedDeliveries}");
-            ImGui.Text($"InProgress: {Game.IsTurnInSupplyInProgress(npc)}, Unlocked: {npc.IsUnlocked}");
+            ImGui.Text($"InProgress: {AgentSatisfactionSupply.IsOpenFor(npc)}, Unlocked: {npc.IsUnlocked}");
             for (var i = 0; i < npc.Requests.Length; ++i)
             {
                 var item = supplyRows[(int)npc.Requests[i]].Item;
@@ -339,7 +338,7 @@ public unsafe class MainWindow : Window, IDisposable
         ImGui.Text($"Achievement state: complete={ui->Achievement.State}, progress={ui->Achievement.ProgressRequestState}");
 
         var agentSat = AgentSatisfactionSupply.Instance();
-        var addonSat = Game.GetFocusedAddonByID(agentSat->AddonId);
+        var addonSat = RaptureAtkUnitManager.GetFocusedAddonById(agentSat->AddonId);
         ImGui.Text($"AgentSat: {agentSat->IsAgentActive()}/{(addonSat != null ? addonSat->IsVisible : null)}, id={agentSat->NpcInfo.Id}");
 
         var agentReq = AgentNpcTrade.Instance();

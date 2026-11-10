@@ -1,3 +1,4 @@
+using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using clib.Extensions;
 using clib.TaskSystem;
 using Dalamud.Game.ClientState.Conditions;
@@ -36,7 +37,6 @@ public abstract class AutoCommon : TaskBase
         var itemId = npc.TurnInItems[slot];
         TurnInState? state = null;
         var acted = false;
-        string? lastRequest = null;
         string? lastHandOverError = null;
         var remaining = npc.RemainingTurnins(slot);
         var interacts = 0;
@@ -56,14 +56,6 @@ public abstract class AutoCommon : TaskBase
                 state = next;
                 acted = false;
                 lastHandOverError = null;
-            }
-
-            // just log everything at this point
-            var request = Game.IsTurnInRequestActive() || AtkUnitBase.IsAddonReady("Request") ? Game.GetAgentLog() : null;
-            if (request != lastRequest)
-            {
-                Log($"request: {request ?? "closed"}");
-                lastRequest = request;
             }
             if (next == TurnInState.Finished)
                 break;
@@ -85,25 +77,24 @@ public abstract class AutoCommon : TaskBase
                     break;
                 case TurnInState.RequestFill when !acted:
                     acted = true;
-                    Log($"filling slot {Game.TurnInRequestIndex(itemId)}: {Game.GetAgentLog()}");
-                    Log($"fill result: {Game.FillTurnInRequest(Game.TurnInRequestIndex(itemId))}, {Game.GetAgentLog()}");
+                    var index = AgentNpcTrade.IndexOfRequest(itemId);
+                    if (!AgentNpcTrade.FillRequest(index))
+                        Log($"failed to fill slot {index}: {AddonRequest.GetState()}");
                     break;
                 case TurnInState.RequestHandOver when !acted:
-                    var handOverError = Game.HandOverTurnInRequest();
+                    var handOverError = AddonRequest.HandOver();
                     acted = handOverError == null;
-                    if (acted)
-                        Log($"hand over clicked: {Game.GetAgentLog()}");
-                    else if (handOverError != lastHandOverError)
-                        Log($"hand over not clicked ({handOverError})");
+                    if (!acted && handOverError != lastHandOverError)
+                        Log($"hand over not clicked ({handOverError}): {AddonRequest.GetState()}");
                     lastHandOverError = handOverError;
                     break;
                 case TurnInState.SupplyMenu when !acted:
                     acted = true;
-                    Game.TurnInSupply(slot);
+                    AgentSatisfactionSupply.Deliver(slot);
                     break;
                 case TurnInState.CloseSupply when !acted:
                     acted = true;
-                    Game.CloseTurnInSupply();
+                    AgentSatisfactionSupply.Close();
                     break;
                 case TurnInState.Idle when !acted:
                     acted = true;
@@ -122,11 +113,12 @@ public abstract class AutoCommon : TaskBase
             return TurnInState.Talk;
         if (AtkUnitBase.IsAddonReady("SelectYesno"))
             return TurnInState.YesNo;
-        if (Game.IsTurnInRequestActive())
+        if (AgentNpcTrade.IsActive)
         {
-            if (Game.TurnInRequestIndex(itemId) < 0 || Game.IsTurnInRequestSelecting())
+            var index = AgentNpcTrade.IndexOfRequest(itemId);
+            if (index < 0 || AgentNpcTrade.IsSelecting)
                 return TurnInState.RequestWait;
-            if (Game.IsTurnInRequestReadyToHandOver(Game.TurnInRequestIndex(itemId)))
+            if (AddonRequest.IsReadyToHandOver(index))
                 return TurnInState.RequestHandOver;
             return AtkUnitBase.IsAddonReady("Request") ? TurnInState.RequestFill : TurnInState.RequestWait;
         }
@@ -135,7 +127,7 @@ public abstract class AutoCommon : TaskBase
         var occupied = cutscene || Service.Conditions[ConditionFlag.OccupiedInEvent] || Service.Conditions[ConditionFlag.OccupiedInQuestEvent] || Service.Conditions[ConditionFlag.Occupied];
         if (remaining > 0)
         {
-            if (Game.IsTurnInSupplyInProgress(npc))
+            if (AgentSatisfactionSupply.IsOpenFor(npc))
                 return TurnInState.SupplyMenu;
             if (AtkUnitBase.IsAddonReady("SelectString"))
                 return TurnInState.NpcMenu;
@@ -146,7 +138,7 @@ public abstract class AutoCommon : TaskBase
             return TurnInState.CloseMenu;
         if (cutscene)
             return TurnInState.Busy;
-        if (Game.IsTurnInSupplyVisible())
+        if (AgentSatisfactionSupply.IsVisible)
             return TurnInState.CloseSupply;
         return occupied ? TurnInState.Busy : TurnInState.Finished;
     }

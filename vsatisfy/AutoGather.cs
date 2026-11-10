@@ -1,3 +1,4 @@
+using FFXIVClientStructs.FFXIV.Client.Game;
 ﻿using clib.TaskSystem;
 using Dalamud.Plugin.Ipc;
 using System.Threading.Tasks;
@@ -30,12 +31,12 @@ public sealed class AutoGather(NPCInfo npc) : AutoCommon
             throw new Exception("Gather or turn-in data is not initialized");
 
         var itemId = npc.GatherData.GatherItemId;
-        var remainingGathers = remainingTurnins - Game.NumItemsInInventory(itemId, (short)npc.GatherData.CollectabilityLow);
+        var remainingGathers = remainingTurnins - InventoryManager.GetItemCount(itemId, (short)npc.GatherData.CollectabilityLow);
         for (var attempt = 1; remainingGathers > 0; ++attempt)
         {
             ErrorIf(attempt > MaxGatherAttempts, $"Still missing {remainingGathers}x {ItemName(itemId)} after {MaxGatherAttempts} gathering attempts");
             await Gather(itemId, remainingGathers);
-            remainingGathers = remainingTurnins - Game.NumItemsInInventory(itemId, (short)npc.GatherData.CollectabilityLow);
+            remainingGathers = remainingTurnins - InventoryManager.GetItemCount(itemId, (short)npc.GatherData.CollectabilityLow);
         }
 
         Status = "Teleporting back to Npc";

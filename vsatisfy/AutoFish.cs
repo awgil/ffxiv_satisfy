@@ -1,3 +1,4 @@
+using FFXIVClientStructs.FFXIV.Client.Game;
 ﻿using clib.TaskSystem;
 using Lumina.Excel.Sheets;
 using System.Threading.Tasks;
@@ -18,7 +19,7 @@ public sealed class AutoFish(NPCInfo npc) : AutoCommon
             throw new Exception("Fish or turn-in data is not initialized");
 
         var turnInItemId = npc.FishData.FishItemId;
-        var remainingFish = remainingTurnins - Game.NumItemsInInventory(turnInItemId, 1);
+        var remainingFish = remainingTurnins - InventoryManager.GetItemCount(turnInItemId, 1);
         if (remainingFish > 0)
         {
             Status = "Teleporting to fish zone";
