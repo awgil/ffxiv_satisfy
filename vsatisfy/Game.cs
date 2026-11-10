@@ -254,10 +254,29 @@ public static unsafe class Game
         return menu != null && menu->IsVisible;
     }
 
-    public static bool IsTurnInRequestReadyToHandOver()
+    private static uint TurnInRequestSlotIcon(AddonRequest* addon, int index)
+    {
+        if (index is < 0 or >= 5)
+            return 0;
+        var dragDrop = (&addon->AtkComponentDragDrop250)[index];
+        return dragDrop != null && dragDrop->AtkComponentIcon != null ? dragDrop->AtkComponentIcon->IconId : 0;
+    }
+
+    public static bool IsTurnInRequestReadyToHandOver(int index)
     {
         var addon = (AddonRequest*)RaptureAtkUnitManager.Instance()->GetAddonByName("Request");
-        return addon != null && addon->AtkUnitBase.IsVisible && addon->AtkUnitBase.IsReady && addon->HandOverButton != null && addon->HandOverButton->IsEnabled;
+        return addon != null && addon->AtkUnitBase.IsVisible && addon->AtkUnitBase.IsReady && addon->HandOverButton != null && addon->HandOverButton->IsEnabled && TurnInRequestSlotIcon(addon, index) != 0;
+    }
+
+    public static string GetAgentLog()
+    {
+        var agent = AgentNpcTrade.Instance();
+        var addon = (AddonRequest*)RaptureAtkUnitManager.Instance()->GetAddonByName("Request");
+        if (addon == null)
+            return $"agent={agent->IsAgentActive()}, sel={agent->SelectedTurnInSlot}, no addon";
+        var icons = string.Join(",", Enumerable.Range(0, 5).Select(i => TurnInRequestSlotIcon(addon, i)));
+        var button = addon->HandOverButton;
+        return $"agent={agent->IsAgentActive()}, sel={agent->SelectedTurnInSlot}, visible={addon->AtkUnitBase.IsVisible}, ready={addon->AtkUnitBase.IsReady}, entries={addon->EntryCount}, handover={(button != null ? button->IsEnabled : null)}, slots=[{icons}]";
     }
 
     public static bool FillTurnInRequest(int index)
@@ -286,21 +305,23 @@ public static unsafe class Game
         return agent->SelectedTurnInSlot < 0;
     }
 
-    public static void HandOverTurnInRequest()
+    public static string? HandOverTurnInRequest()
     {
-        var agent = AgentNpcTrade.Instance();
-        if (!agent->IsAgentActive())
-            return;
-
-        var res = new AtkValue();
-        Span<AtkValue> param = stackalloc AtkValue[4];
-        foreach (ref var p in param)
-            p.SetInt(0);
-        var addonId = agent->AddonId;
-        agent->ReceiveEvent(&res, param.GetPointer(0), 4, 0);
-        var addon = RaptureAtkUnitManager.Instance()->GetAddonById((ushort)addonId);
-        if (addon != null && addon->IsVisible)
-            addon->Close(true);
+        var addon = (AddonRequest*)RaptureAtkUnitManager.Instance()->GetAddonByName("Request");
+        if (addon == null || !addon->AtkUnitBase.IsVisible || !addon->AtkUnitBase.IsReady)
+            return "addon not ready";
+        var button = addon->HandOverButton;
+        if (button == null || button->OwnerNode == null)
+            return "no hand over button";
+        if (!button->IsEnabled)
+            return "hand over button disabled";
+        var evt = button->OwnerNode->AtkResNode.AtkEventManager.Event;
+        if (evt == null)
+            return "hand over button has no event";
+        Service.Log.Debug($"[TurnIn] clicking hand over: type={evt->State.EventType}, param={evt->Param}, {GetAgentLog()}");
+        var data = new AtkEventData();
+        addon->AtkUnitBase.ReceiveEvent(evt->State.EventType, (int)evt->Param, evt, &data);
+        return null;
     }
 
     public static bool IsTerritoryLoaded() => GameMain.Instance()->TerritoryLoadState == 2;

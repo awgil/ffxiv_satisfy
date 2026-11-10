@@ -36,6 +36,8 @@ public abstract class AutoCommon : TaskBase
         var itemId = npc.TurnInItems[slot];
         TurnInState? state = null;
         var acted = false;
+        string? lastRequest = null;
+        string? lastHandOverError = null;
         var remaining = npc.RemainingTurnins(slot);
         var interacts = 0;
         while (true)
@@ -53,6 +55,15 @@ public abstract class AutoCommon : TaskBase
                 Log($"turn-in state: {state} -> {next} ({remaining} left)");
                 state = next;
                 acted = false;
+                lastHandOverError = null;
+            }
+
+            // just log everything at this point
+            var request = Game.IsTurnInRequestActive() || AtkUnitBase.IsAddonReady("Request") ? Game.GetAgentLog() : null;
+            if (request != lastRequest)
+            {
+                Log($"request: {request ?? "closed"}");
+                lastRequest = request;
             }
             if (next == TurnInState.Finished)
                 break;
@@ -74,11 +85,17 @@ public abstract class AutoCommon : TaskBase
                     break;
                 case TurnInState.RequestFill when !acted:
                     acted = true;
-                    Game.FillTurnInRequest(Game.TurnInRequestIndex(itemId));
+                    Log($"filling slot {Game.TurnInRequestIndex(itemId)}: {Game.GetAgentLog()}");
+                    Log($"fill result: {Game.FillTurnInRequest(Game.TurnInRequestIndex(itemId))}, {Game.GetAgentLog()}");
                     break;
                 case TurnInState.RequestHandOver when !acted:
-                    acted = true;
-                    Game.HandOverTurnInRequest();
+                    var handOverError = Game.HandOverTurnInRequest();
+                    acted = handOverError == null;
+                    if (acted)
+                        Log($"hand over clicked: {Game.GetAgentLog()}");
+                    else if (handOverError != lastHandOverError)
+                        Log($"hand over not clicked ({handOverError})");
+                    lastHandOverError = handOverError;
                     break;
                 case TurnInState.SupplyMenu when !acted:
                     acted = true;
@@ -109,7 +126,7 @@ public abstract class AutoCommon : TaskBase
         {
             if (Game.TurnInRequestIndex(itemId) < 0 || Game.IsTurnInRequestSelecting())
                 return TurnInState.RequestWait;
-            if (Game.IsTurnInRequestReadyToHandOver())
+            if (Game.IsTurnInRequestReadyToHandOver(Game.TurnInRequestIndex(itemId)))
                 return TurnInState.RequestHandOver;
             return AtkUnitBase.IsAddonReady("Request") ? TurnInState.RequestFill : TurnInState.RequestWait;
         }
