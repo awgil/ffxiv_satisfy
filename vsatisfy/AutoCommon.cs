@@ -139,7 +139,7 @@ public abstract class AutoCommon : TaskBase
         if (cutscene)
             return TurnInState.Busy;
         if (AgentSatisfactionSupply.IsVisible)
-            return TurnInState.CloseSupply;
+            return AgentSatisfactionSupply.IsInteractable ? TurnInState.CloseSupply : TurnInState.Busy;
         return occupied ? TurnInState.Busy : TurnInState.Finished;
     }
 

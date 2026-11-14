@@ -1,4 +1,5 @@
 using Dalamud.Game.ClientState.Conditions;
+using FFXIVClientStructs.FFXIV.Client.Game.Event;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
@@ -20,6 +21,7 @@ public static unsafe class AgentSatisfactionSupplyExtensions
         }
 
         public static bool IsVisible => AgentSatisfactionSupply.Addon is var addon && addon != null && addon->IsVisible;
+        public static bool IsInteractable => AgentSatisfactionSupply.Addon is var addon && addon != null && addon->IsVisible && addon->IsReady && !IsBlocked();
 
         public static bool IsOpenFor(NPCInfo npc)
         {
@@ -51,7 +53,8 @@ public static unsafe class AgentSatisfactionSupplyExtensions
 
     private static bool IsBlocked()
     {
-        if (Service.Conditions[ConditionFlag.OccupiedInCutSceneEvent] || AgentNpcTrade.IsActive)
+        // pending scene tasks suspends the event script, and if the addon callback is fired now, the script resumes and the task's completion later resumes a dead lua thread
+        if (Service.Conditions[ConditionFlag.OccupiedInCutSceneEvent] || AgentNpcTrade.IsActive || EventFramework.Instance()->EventSceneModule.TaskManager.Tasks.Count > 0)
             return true;
         var manager = RaptureAtkUnitManager.Instance();
         foreach (var name in (ReadOnlySpan<string>)["Talk", "Request", "SelectString", "SelectYesno"])
