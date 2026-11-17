@@ -93,6 +93,30 @@ public unsafe class MainWindow : Window, IDisposable
             DrawDebug();
     }
 
+    public bool StartTurnIn(uint npcRowId, int kind)
+    {
+        if (!UIState.Instance()->PlayerState.IsLoaded || Svc.Automation.Running || _npcs.Find(n => n.Index + 1 == npcRowId) is not { } npc)
+            return false;
+
+        UpdateData();
+        if (!npc.IsUnlocked || npc.MaxDeliveries - npc.UsedDeliveries <= 0)
+            return false;
+
+        AutoCommon? task = kind switch
+        {
+            0 => new AutoCraft(npc),
+            1 => new AutoGather(npc),
+            2 => new AutoFish(npc),
+            _ => null
+        };
+        if (task == null)
+            return false;
+
+        IsOpen = true;
+        Svc.Automation.Start(task);
+        return true;
+    }
+
     private void DrawConfig()
     {
         using var popup = ImRaii.Popup("###config");
