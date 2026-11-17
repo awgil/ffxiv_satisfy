@@ -13,6 +13,7 @@ public sealed class Plugin(IDalamudPluginInterface pluginInterface, ICommandMana
 
     private readonly WindowSystem WindowSystem = new("vsatisfy");
     private MainWindow? _wndMain;
+    private Ipc? _ipc;
 
     public async Task LoadAsync(CancellationToken cancellationToken)
     {
@@ -28,6 +29,7 @@ public sealed class Plugin(IDalamudPluginInterface pluginInterface, ICommandMana
 
         _wndMain = new();
         WindowSystem.AddWindow(_wndMain);
+        _ipc = new(pluginInterface, _wndMain);
 
         cmd.AddHandler("/vsatisfy", new((_, _) => _wndMain.IsOpen ^= true) { HelpMessage = "Toggle main window" });
 
@@ -38,6 +40,7 @@ public sealed class Plugin(IDalamudPluginInterface pluginInterface, ICommandMana
 
     public async ValueTask DisposeAsync()
     {
+        _ipc?.Dispose();
         CLibMain.Dispose();
         cmd.RemoveHandler("/vsatisfy");
         WindowSystem.RemoveAllWindows();
