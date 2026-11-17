@@ -28,6 +28,8 @@ public static unsafe class AgentSatisfactionSupplyExtensions
             var agent = AgentSatisfactionSupply.Instance();
             if (!agent->IsAgentActive() || agent->NpcInfo.Id != npc.Index + 1 || !agent->NpcInfo.Valid || !agent->NpcInfo.Initialized)
                 return false;
+            if (EventFramework.HasPendingSceneTasks)
+                return false;
             if (RaptureAtkUnitManager.GetFocusedAddonById(agent->AddonId) is var focused && focused != null && focused->IsVisible)
                 return true;
             var addon = AgentSatisfactionSupply.Addon;
@@ -53,8 +55,7 @@ public static unsafe class AgentSatisfactionSupplyExtensions
 
     private static bool IsBlocked()
     {
-        // pending scene tasks suspends the event script, and if the addon callback is fired now, the script resumes and the task's completion later resumes a dead lua thread
-        if (Service.Conditions[ConditionFlag.OccupiedInCutSceneEvent] || AgentNpcTrade.IsActive || EventFramework.Instance()->EventSceneModule.TaskManager.Tasks.Count > 0)
+        if (Service.Conditions[ConditionFlag.OccupiedInCutSceneEvent] || AgentNpcTrade.IsActive || EventFramework.HasPendingSceneTasks)
             return true;
         var manager = RaptureAtkUnitManager.Instance();
         foreach (var name in (ReadOnlySpan<string>)["Talk", "Request", "SelectString", "SelectYesno"])

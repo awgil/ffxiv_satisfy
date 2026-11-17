@@ -1,4 +1,5 @@
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
+using FFXIVClientStructs.FFXIV.Client.Game.Event;
 using clib.Extensions;
 using clib.TaskSystem;
 using Dalamud.Game.ClientState.Conditions;
@@ -38,6 +39,7 @@ public abstract class AutoCommon : TaskBase
         TurnInState? state = null;
         var acted = false;
         string? lastHandOverError = null;
+        string? lastSceneTasks = null;
         var remaining = npc.RemainingTurnins(slot);
         var interacts = 0;
         while (true)
@@ -47,6 +49,13 @@ public abstract class AutoCommon : TaskBase
             {
                 remaining = curRemaining;
                 interacts = 0;
+            }
+
+            var sceneTasks = EventFramework.PendingSceneTasks;
+            if (sceneTasks != lastSceneTasks)
+            {
+                Log($"scene tasks: {sceneTasks}");
+                lastSceneTasks = sceneTasks;
             }
 
             var next = GetTurnInState(npc, itemId, remaining);
@@ -60,40 +69,48 @@ public abstract class AutoCommon : TaskBase
             if (next == TurnInState.Finished)
                 break;
 
+            var canAct = !acted && !EventFramework.HasPendingSceneTasks;
             Status = $"Turning in {ItemName(itemId)} ({remaining} left): {next}";
             switch (next)
             {
                 case TurnInState.Talk:
                     AddonTalk.Progress();
                     break;
-                case TurnInState.YesNo:
+                case TurnInState.YesNo when canAct:
+                    acted = true;
                     AddonSelectYesno.Yes();
                     break;
-                case TurnInState.NpcMenu:
+                case TurnInState.NpcMenu when canAct:
+                    acted = true;
                     AddonSelectString.Select(0);
                     break;
-                case TurnInState.CloseMenu:
+                case TurnInState.CloseMenu when canAct:
+                    acted = true;
                     AtkUnitBase.CloseAddon("SelectString");
                     break;
-                case TurnInState.RequestFill when !acted:
+                case TurnInState.RequestFill when canAct:
                     acted = true;
                     var index = AgentNpcTrade.IndexOfRequest(itemId);
                     if (!AgentNpcTrade.FillRequest(index))
                         Log($"failed to fill slot {index}: {AddonRequest.GetState()}");
                     break;
-                case TurnInState.RequestHandOver when !acted:
+                case TurnInState.RequestHandOver when canAct:
                     var handOverError = AddonRequest.HandOver();
                     acted = handOverError == null;
-                    if (!acted && handOverError != lastHandOverError)
+                    if (acted)
+                        Log($"hand over clicked, same-tick state: {AddonRequest.GetState()}"); // does the click disable the button synchronously?
+                    else if (handOverError != lastHandOverError)
                         Log($"hand over not clicked ({handOverError}): {AddonRequest.GetState()}");
                     lastHandOverError = handOverError;
                     break;
-                case TurnInState.SupplyMenu when !acted:
+                case TurnInState.SupplyMenu when canAct:
                     acted = true;
+                    Log($"delivering slot {slot} (scene tasks: {sceneTasks})");
                     AgentSatisfactionSupply.Deliver(slot);
                     break;
-                case TurnInState.CloseSupply when !acted:
+                case TurnInState.CloseSupply when canAct:
                     acted = true;
+                    Log($"closing supply menu (scene tasks: {sceneTasks})");
                     AgentSatisfactionSupply.Close();
                     break;
                 case TurnInState.Idle when !acted:
